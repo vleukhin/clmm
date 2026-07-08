@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ *
+ * CLMM Analytics — dark-first design system                          *
+ * ------------------------------------------------------------------ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0a0e13;
+  --bg-elev: #111821;
+  --surface: #141c26;
+  --surface-hover: #18222e;
+  --border: #223041;
+  --border-soft: #1a2531;
+  --text: #e6edf3;
+  --text-muted: #8896a5;
+  --text-faint: #5b6774;
+  --accent: #2dd4bf;
+  --accent-dim: #14b8a6;
+  --eth: #7c9cff;
+  --btc: #f7931a;
+  --pos: #34d399;
+  --neg: #f87171;
+  --radius: 12px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-eth: var(--eth);
+  --color-btc: var(--btc);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-geist-sans);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(45, 212, 191, 0.06), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Tabular figures for all numeric columns. */
+.tnum {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin custom scrollbar for the table container. */
+.scroll-x {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
