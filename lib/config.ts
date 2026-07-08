@@ -39,23 +39,18 @@ function lc<T>(entries: Record<string, T>): Record<string, T> {
   );
 }
 
-// Uniswap-schema DEXes still needing a verified subgraph `id`. Candidate ids
-// below were collected from Graph Explorer search results but are UNVERIFIED —
-// before adding a `subgraph` field, confirm with a live key that the id (a) has
-// an active indexer, (b) serves the uniswap-v3 schema (poolDayDatas.feesUSD),
-// and (c) returns rows for a known pool address of that chain+dex:
-//   arbitrum/uniswap_v3_arbitrum    → 8sE6rTNkPhzZXZC6c8UQy2ghFTu5PPdGauwUBm4t7HZ1
-//   base/uniswap-v3-base            → HMuAwufqZ1YCRmzL2SfHTVkzZovC9VL2UAKhjvRqKiR1
-//                                   or FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS
-//   polygon_pos/uniswap_v3_polygon_pos → 3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm
-//   bsc/uniswap-bsc                 → 8f1KyiuNYiNGrjagzEVpf6k6KkPG517prtjdrJihgHw
-//   bsc/pancakeswap-v3-bsc          → Hv1GncLY5docZoGtXjo4kwbTvxm3MAhVZqBZE4sUT9eZ
-//                                   or 78EUqzJmEVJsAKvWghn7qotf9LVGqcTQxJhT5z84ZmgJ
-//   eth/sushiswap-v3-ethereum       → 2tGWMrDha4164KkFAfkU3rDCtuxGb4q1emXmFdLLzJ8x
-//   eth/pancakeswap-v3-ethereum     → 8MxbjYK5kVYjV6aY947ZuPfwMHz3CDh4b3u7QxDLGBLS (low confidence)
-//   arbitrum/pancakeswap-v3-arbitrum, base/pancakeswap-v3-base,
-//   polygon_pos/sushiswap-v3-polygon → not found yet
-// Until verified+filled, those pools fall back to the OHLCV volume estimate.
+// Every `subgraph.id` below was verified live (2026-07-08): active indexer,
+// uniswap-v3 schema (poolDayDatas.feesUSD), rows for our pool addresses, data
+// fresh same-day. Re-verify the same way before adding new ids.
+// Still WITHOUT a working subgraph (fall back to OHLCV estimate):
+//   bsc/pancakeswap-v3-bsc  — A1fvJWQLBeUAggX2WQTMm3FKjXTekNXo77ZySun4YN2m exists
+//     but gateway returned "bad indexers" (retry later);
+//     Hv1GncLY5docZoGtXjo4kwbTvxm3MAhVZqBZE4sUT9eZ has the schema but 0 rows
+//     for our BSC pools (wrong chain/deployment)
+//   bsc/uniswap-bsc, bsc/thena-fusion (Algebra), arbitrum/pancakeswap-v3-arbitrum,
+//   arbitrum/camelot-v3 (Algebra), base/pancakeswap-v3-base,
+//   base/aerodrome-slipstream (own schema), polygon_pos/quickswap_v3 (Algebra),
+//   polygon_pos/sushiswap-v3-polygon
 export const NETWORKS: NetworkConfig[] = [
   {
     id: "eth",
@@ -68,8 +63,18 @@ export const NETWORKS: NetworkConfig[] = [
         // Confirmed Uniswap v3 Ethereum mainnet subgraph.
         subgraph: { id: "5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV", schema: "uniswap-v3" },
       },
-      { id: "pancakeswap-v3-ethereum", name: "PancakeSwap V3", family: "PancakeSwap" },
-      { id: "sushiswap-v3-ethereum", name: "SushiSwap V3", family: "SushiSwap" },
+      {
+        id: "pancakeswap-v3-ethereum",
+        name: "PancakeSwap V3",
+        family: "PancakeSwap",
+        subgraph: { id: "CJYGNhb7RvnhfBDjqpRnD3oxgyhibzc7fkAMa38YV3oS", schema: "uniswap-v3" },
+      },
+      {
+        id: "sushiswap-v3-ethereum",
+        name: "SushiSwap V3",
+        family: "SushiSwap",
+        subgraph: { id: "5nnoU1nUFeWqtXgbpC54L9PWdpgo7Y9HYinR3uTMsfzs", schema: "uniswap-v3" },
+      },
     ],
     volatile: lc({
       "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2": { asset: "ETH", symbol: "WETH" },
@@ -108,7 +113,12 @@ export const NETWORKS: NetworkConfig[] = [
     id: "arbitrum",
     name: "Arbitrum",
     dexes: [
-      { id: "uniswap_v3_arbitrum", name: "Uniswap V3", family: "Uniswap" },
+      {
+        id: "uniswap_v3_arbitrum",
+        name: "Uniswap V3",
+        family: "Uniswap",
+        subgraph: { id: "FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM", schema: "uniswap-v3" },
+      },
       { id: "pancakeswap-v3-arbitrum", name: "PancakeSwap V3", family: "PancakeSwap" },
       { id: "camelot-v3", name: "Camelot V3", family: "Camelot" },
     ],
@@ -127,7 +137,12 @@ export const NETWORKS: NetworkConfig[] = [
     id: "base",
     name: "Base",
     dexes: [
-      { id: "uniswap-v3-base", name: "Uniswap V3", family: "Uniswap" },
+      {
+        id: "uniswap-v3-base",
+        name: "Uniswap V3",
+        family: "Uniswap",
+        subgraph: { id: "43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG", schema: "uniswap-v3" },
+      },
       { id: "aerodrome-slipstream", name: "Aerodrome Slipstream", family: "Aerodrome" },
       { id: "pancakeswap-v3-base", name: "PancakeSwap V3", family: "PancakeSwap" },
     ],
@@ -145,7 +160,12 @@ export const NETWORKS: NetworkConfig[] = [
     id: "polygon_pos",
     name: "Polygon",
     dexes: [
-      { id: "uniswap_v3_polygon_pos", name: "Uniswap V3", family: "Uniswap" },
+      {
+        id: "uniswap_v3_polygon_pos",
+        name: "Uniswap V3",
+        family: "Uniswap",
+        subgraph: { id: "3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm", schema: "uniswap-v3" },
+      },
       { id: "quickswap_v3", name: "QuickSwap V3", family: "QuickSwap" },
       { id: "sushiswap-v3-polygon", name: "SushiSwap V3", family: "SushiSwap" },
     ],
