@@ -89,6 +89,10 @@ function sortValue(p: Pool, key: SortKey): number {
       return p.volumeToTvl;
     case "feeTier":
       return p.feeTier ?? -1;
+    case "feeApr7d":
+      return p.feeApr7d ?? -1;
+    case "feeApr30d":
+      return p.feeApr30d ?? -1;
   }
 }
 
@@ -148,6 +152,8 @@ export function paramsToFilters(p: URLSearchParams): {
     "volume24hUsd",
     "volumeToTvl",
     "feeTier",
+    "feeApr7d",
+    "feeApr30d",
   ];
   const sort: SortState = {
     key: validKeys.includes(sortKey as SortKey)

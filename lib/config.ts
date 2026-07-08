@@ -161,3 +161,8 @@ export const GECKOTERMINAL_API = "https://api.geckoterminal.com/api/v2";
  * Page 1 (top by 24h volume) already contains the major ETH/BTC-stable pools,
  * so 1 page keeps us well under the free-tier rate limit. */
 export const PAGES_PER_DEX = 1;
+
+/** Cap on how many pools (top by TVL) get OHLCV-based 7d/30d APR enrichment.
+ * Each enriched pool costs one OHLCV request (free-tier ~30 req/min), so this
+ * bounds the cold-load cost. Lower-TVL pools show "—" for APR. */
+export const MAX_APR_POOLS = 30;

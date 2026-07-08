@@ -2,6 +2,7 @@
 
 import type { SortState } from "@/lib/filters";
 import {
+  formatApr,
   formatFeeTier,
   formatRatio,
   formatUsd,
@@ -65,18 +66,45 @@ function SortHeader({
   );
 }
 
+/** Emerald-tinted APR pill; intensity scales with APR, capped at 50%. */
+function aprCell(apr: number | null | undefined, loading: boolean) {
+  if (loading && apr === undefined) {
+    return (
+      <span className="tnum inline-block h-5 w-12 animate-pulse rounded bg-surface-hover align-middle" />
+    );
+  }
+  if (apr == null) return <span className="tnum text-text-faint">—</span>;
+  const t = Math.max(0, Math.min(1, apr / 0.5));
+  return (
+    <span
+      className="tnum inline-block rounded-md px-2 py-1 text-xs font-semibold"
+      style={{
+        background: `color-mix(in oklab, var(--accent) ${Math.round(t * 20)}%, transparent)`,
+        color:
+          t > 0.1
+            ? `color-mix(in oklab, var(--accent) ${Math.round(55 + t * 45)}%, var(--text))`
+            : "var(--text-muted)",
+      }}
+    >
+      {formatApr(apr)}
+    </span>
+  );
+}
+
 export function PoolsTable({
   pools,
   sort,
   onSort,
+  aprLoading,
 }: {
   pools: Pool[];
   sort: SortState;
   onSort: (key: SortKey) => void;
+  aprLoading: boolean;
 }) {
   return (
     <div className="scroll-x overflow-x-auto rounded-2xl border border-border-soft">
-      <table className="w-full min-w-[820px] border-collapse text-sm">
+      <table className="w-full min-w-[980px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border">
             <th className="sticky top-0 z-10 bg-bg-elev px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-text-faint">
@@ -96,6 +124,18 @@ export function PoolsTable({
             <SortHeader
               label="Vol / TVL"
               col="volumeToTvl"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortHeader
+              label="APR 7d"
+              col="feeApr7d"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortHeader
+              label="APR 30d"
+              col="feeApr30d"
               sort={sort}
               onSort={onSort}
             />
@@ -180,6 +220,20 @@ export function PoolsTable({
                 >
                   {formatRatio(p.volumeToTvl)}
                 </span>
+              </td>
+
+              {/* Fee APR 7d / 30d */}
+              <td
+                className="px-2 py-2 text-right"
+                title="Annualized fee yield from 7d volume (volume × fee ÷ TVL)"
+              >
+                {aprCell(p.feeApr7d, aprLoading)}
+              </td>
+              <td
+                className="px-2 py-2 text-right"
+                title="Annualized fee yield from 30d volume (volume × fee ÷ TVL)"
+              >
+                {aprCell(p.feeApr30d, aprLoading)}
               </td>
             </tr>
           ))}

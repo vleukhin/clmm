@@ -14,6 +14,21 @@ export function parseFeeTier(name: string): number | null {
   return Number.isFinite(pct) ? pct / 100 : null;
 }
 
+/** Fee tier from the pool name, falling back to `pool_fee_percentage` (a
+ * percentage like "0.01") for pools whose name has no trailing "%". */
+function resolveFeeTier(
+  name: string,
+  poolFeePercentage: string | null | undefined,
+): number | null {
+  const fromName = parseFeeTier(name);
+  if (fromName != null) return fromName;
+  if (poolFeePercentage != null) {
+    const pct = parseFloat(poolFeePercentage);
+    if (Number.isFinite(pct)) return pct / 100;
+  }
+  return null;
+}
+
 function num(v: string | null | undefined): number {
   const n = v == null ? NaN : parseFloat(v);
   return Number.isFinite(n) ? n : 0;
@@ -63,7 +78,10 @@ export function normalizePool(
     baseAsset: volatile.asset,
     volatileSymbol: volatile.symbol,
     stableSymbol,
-    feeTier: parseFeeTier(raw.attributes.name),
+    feeTier: resolveFeeTier(
+      raw.attributes.name,
+      raw.attributes.pool_fee_percentage,
+    ),
     tvlUsd,
     volume24hUsd,
     volumeToTvl: tvlUsd > 0 ? volume24hUsd / tvlUsd : 0,

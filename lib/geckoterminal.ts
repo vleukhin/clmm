@@ -11,6 +11,9 @@ export interface RawPool {
     name: string;
     pool_created_at: string | null;
     reserve_in_usd: string | null;
+    /** Fee tier as a percentage string, e.g. "0.01". Fallback when the pool
+     * name has no trailing "%". */
+    pool_fee_percentage?: string | null;
     volume_usd: { h24?: string | null } | null;
     price_change_percentage: { h24?: string | null } | null;
     transactions: { h24?: { buys?: number; sells?: number } | null } | null;
@@ -75,16 +78,21 @@ function createLimiter(concurrency: number, minIntervalMs: number) {
   };
 }
 
-// Serial dispatch, one request every 1.5s => <=~20 req in a full aggregation,
-// staying safely under the ~30 req/min free-tier limit.
-const limit = createLimiter(1, 1500);
+// Serial dispatch, one request every 2s => <=30 req/min, staying under the
+// free-tier limit even when the pool list and the OHLCV-based APR enrichment
+// share the budget.
+const limit = createLimiter(1, 2000);
 
-async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
+async function fetchWithRetry(
+  url: string,
+  revalidate = 60,
+  retries = 2,
+): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
-      // Cache at the Next.js data layer; refresh every 60s.
-      next: { revalidate: 60 },
+      // Cache at the Next.js data layer.
+      next: { revalidate },
     });
     if (res.status !== 429 || attempt >= retries) return res;
     // Backoff on rate limit: 4s, 8s.
@@ -118,6 +126,43 @@ export async function fetchPoolsPage(
     } catch (err) {
       warnings.push(
         `${networkId}/${dexId} p${page}: ${err instanceof Error ? err.message : "fetch failed"}`,
+      );
+      return [];
+    }
+  });
+}
+
+interface OhlcvResponse {
+  data?: { attributes?: { ohlcv_list?: number[][] } };
+}
+
+/**
+ * Fetch up to 30 daily OHLCV candles for a pool and return the daily USD
+ * volumes, newest first. Cached for 30 min (daily data changes slowly). Returns
+ * [] on error and records a warning instead of throwing.
+ */
+export async function fetchDailyVolumes(
+  networkId: string,
+  address: string,
+  warnings: string[],
+): Promise<number[]> {
+  const url =
+    `${GECKOTERMINAL_API}/networks/${networkId}/pools/${address}/ohlcv/day` +
+    `?aggregate=1&limit=30&currency=usd`;
+  return limit(async () => {
+    try {
+      const res = await fetchWithRetry(url, 1800);
+      if (!res.ok) {
+        warnings.push(`ohlcv ${networkId}/${address}: HTTP ${res.status}`);
+        return [];
+      }
+      const json = (await res.json()) as OhlcvResponse;
+      const list = json.data?.attributes?.ohlcv_list ?? [];
+      // Each candle is [ts, open, high, low, close, volumeUsd]; already newest-first.
+      return list.map((c) => Number(c[5]) || 0);
+    } catch (err) {
+      warnings.push(
+        `ohlcv ${networkId}/${address}: ${err instanceof Error ? err.message : "fetch failed"}`,
       );
       return [];
     }

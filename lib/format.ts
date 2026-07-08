@@ -20,6 +20,14 @@ export function formatRatio(ratio: number): string {
   return `${(ratio * 100).toFixed(1)}%`;
 }
 
+/** Fee APR is a fraction (0.25 = 25%). */
+export function formatApr(apr: number | null | undefined): string {
+  if (apr == null || !Number.isFinite(apr)) return "—";
+  const pct = apr * 100;
+  if (pct >= 1000) return `${(pct / 1000).toFixed(1)}Kx`;
+  return `${pct.toFixed(pct < 10 ? 1 : 0)}%`;
+}
+
 export function formatFeeTier(fee: number | null): string {
   if (fee == null) return "—";
   return `${(fee * 100).toFixed(fee < 0.001 ? 2 : fee < 0.01 ? 2 : 1)}%`;

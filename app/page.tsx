@@ -13,11 +13,17 @@ import {
   type FilterState,
   type SortState,
 } from "@/lib/filters";
-import type { PoolsResponse, SortKey } from "@/lib/types";
+import type { PoolAprResponse, PoolsResponse, SortKey } from "@/lib/types";
 
 async function fetchPools(): Promise<PoolsResponse> {
   const res = await fetch("/api/pools");
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json();
+}
+
+async function fetchApr(): Promise<PoolAprResponse> {
+  const res = await fetch("/api/pools/apr");
+  if (!res.ok) throw new Error(`APR request failed: ${res.status}`);
   return res.json();
 }
 
@@ -50,11 +56,31 @@ export default function Home() {
     queryFn: fetchPools,
   });
 
-  const allPools = data?.pools ?? [];
+  // Fee APR loads separately (OHLCV-based) and is merged in when ready.
+  const aprQuery = useQuery({
+    queryKey: ["pools-apr"],
+    queryFn: fetchApr,
+    staleTime: 30 * 60_000,
+  });
+
+  // Merge APR into pools so filtering/sorting can use it.
+  const allPools = useMemo(() => {
+    const pools = data?.pools ?? [];
+    const aprById = aprQuery.data?.aprById;
+    if (!aprById) return pools;
+    return pools.map((p) => ({
+      ...p,
+      feeApr7d: aprById[p.id]?.feeApr7d ?? null,
+      feeApr30d: aprById[p.id]?.feeApr30d ?? null,
+    }));
+  }, [data?.pools, aprQuery.data]);
+
   const visible = useMemo(
     () => applyFilters(allPools, filters, sort),
     [allPools, filters, sort],
   );
+
+  const aprLoading = aprQuery.isLoading;
 
   const onSort = (key: SortKey) =>
     setSort((s) =>
@@ -120,7 +146,12 @@ export default function Home() {
         ) : visible.length === 0 ? (
           <EmptyState hasPools={allPools.length > 0} />
         ) : (
-          <PoolsTable pools={visible} sort={sort} onSort={onSort} />
+          <PoolsTable
+            pools={visible}
+            sort={sort}
+            onSort={onSort}
+            aprLoading={aprLoading}
+          />
         )}
       </div>
 

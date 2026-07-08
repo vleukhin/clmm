@@ -29,6 +29,11 @@ export interface Pool {
   volume24hUsd: number;
   /** volume24h / tvl. 0 if tvl is 0. */
   volumeToTvl: number;
+  /** Fee APR from 7d volume, as a fraction (0.25 = 25%). Merged in client-side
+   * from the /api/pools/apr enrichment; undefined until that resolves. */
+  feeApr7d?: number | null;
+  /** Fee APR from 30d volume, as a fraction. */
+  feeApr30d?: number | null;
   /** 24h price change of base token, percent. */
   priceChange24h: number | null;
   /** 24h transaction count. */
@@ -64,4 +69,18 @@ export type SortKey =
   | "tvlUsd"
   | "volume24hUsd"
   | "volumeToTvl"
-  | "feeTier";
+  | "feeTier"
+  | "feeApr7d"
+  | "feeApr30d";
+
+/** Per-pool fee APR enrichment returned by /api/pools/apr, keyed by pool id. */
+export interface PoolApr {
+  feeApr7d: number | null;
+  feeApr30d: number | null;
+}
+
+export interface PoolAprResponse {
+  aprById: Record<string, PoolApr>;
+  generatedAt: string;
+  warnings: string[];
+}
