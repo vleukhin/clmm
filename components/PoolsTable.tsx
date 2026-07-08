@@ -66,8 +66,13 @@ function SortHeader({
   );
 }
 
-/** Emerald-tinted APR pill; intensity scales with APR, capped at 50%. */
-function aprCell(apr: number | null | undefined, loading: boolean) {
+/** Emerald-tinted APR pill; intensity scales with APR, capped at 50%.
+ * Estimates (OHLCV volume × fee) get a leading "≈"; real subgraph fees don't. */
+function aprCell(
+  apr: number | null | undefined,
+  loading: boolean,
+  source: "fees" | "estimate" | undefined,
+) {
   if (loading && apr === undefined) {
     return (
       <span className="tnum inline-block h-5 w-12 animate-pulse rounded bg-surface-hover align-middle" />
@@ -75,6 +80,7 @@ function aprCell(apr: number | null | undefined, loading: boolean) {
   }
   if (apr == null) return <span className="tnum text-text-faint">—</span>;
   const t = Math.max(0, Math.min(1, apr / 0.5));
+  const estimate = source === "estimate";
   return (
     <span
       className="tnum inline-block rounded-md px-2 py-1 text-xs font-semibold"
@@ -86,10 +92,16 @@ function aprCell(apr: number | null | undefined, loading: boolean) {
             : "var(--text-muted)",
       }}
     >
+      {estimate && <span className="text-text-faint">≈</span>}
       {formatApr(apr)}
     </span>
   );
 }
+
+const APR_TITLE: Record<"fees" | "estimate", string> = {
+  fees: "Annualized fee APR from real accrued fees (subgraph feesUSD ÷ TVL)",
+  estimate: "Estimated fee APR (24h-style volume × fee tier ÷ TVL)",
+};
 
 export function PoolsTable({
   pools,
@@ -225,15 +237,15 @@ export function PoolsTable({
               {/* Fee APR 7d / 30d */}
               <td
                 className="px-2 py-2 text-right"
-                title="Annualized fee yield from 7d volume (volume × fee ÷ TVL)"
+                title={p.aprSource ? APR_TITLE[p.aprSource] : undefined}
               >
-                {aprCell(p.feeApr7d, aprLoading)}
+                {aprCell(p.feeApr7d, aprLoading, p.aprSource)}
               </td>
               <td
                 className="px-2 py-2 text-right"
-                title="Annualized fee yield from 30d volume (volume × fee ÷ TVL)"
+                title={p.aprSource ? APR_TITLE[p.aprSource] : undefined}
               >
-                {aprCell(p.feeApr30d, aprLoading)}
+                {aprCell(p.feeApr30d, aprLoading, p.aprSource)}
               </td>
             </tr>
           ))}

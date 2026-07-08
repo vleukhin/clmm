@@ -72,6 +72,7 @@ export default function Home() {
       ...p,
       feeApr7d: aprById[p.id]?.feeApr7d ?? null,
       feeApr30d: aprById[p.id]?.feeApr30d ?? null,
+      aprSource: aprById[p.id]?.source,
     }));
   }, [data?.pools, aprQuery.data]);
 

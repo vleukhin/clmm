@@ -4,6 +4,10 @@
 
 import type { BaseAsset } from "./types";
 
+/** Subgraph schema families we have an adapter for. Only "uniswap-v3" today
+ * (covers Uniswap v3 and its forks: PancakeSwap v3, SushiSwap v3). */
+export type SubgraphSchema = "uniswap-v3";
+
 export interface DexConfig {
   /** GeckoTerminal dex id, e.g. "uniswap_v3". */
   id: string;
@@ -11,6 +15,9 @@ export interface DexConfig {
   name: string;
   /** Family used for grouping across chains, e.g. "Uniswap". */
   family: string;
+  /** The Graph subgraph for real fee data. Absent => APR falls back to the
+   * OHLCV volume estimate. Fill `id` from Graph Explorer per (chain, dex). */
+  subgraph?: { id: string; schema: SubgraphSchema };
 }
 
 export interface NetworkConfig {
@@ -32,12 +39,26 @@ function lc<T>(entries: Record<string, T>): Record<string, T> {
   );
 }
 
+// Uniswap-schema DEXes still needing a subgraph `id` (find on Graph Explorer,
+// verify the indexer is active, then add a `subgraph` field like eth/uniswap_v3):
+//   eth/pancakeswap-v3-ethereum, eth/sushiswap-v3-ethereum,
+//   bsc/pancakeswap-v3-bsc, bsc/uniswap-bsc,
+//   arbitrum/uniswap_v3_arbitrum, arbitrum/pancakeswap-v3-arbitrum,
+//   base/uniswap-v3-base, base/pancakeswap-v3-base,
+//   polygon_pos/uniswap_v3_polygon_pos, polygon_pos/sushiswap-v3-polygon
+// Until filled, those pools fall back to the OHLCV volume estimate.
 export const NETWORKS: NetworkConfig[] = [
   {
     id: "eth",
     name: "Ethereum",
     dexes: [
-      { id: "uniswap_v3", name: "Uniswap V3", family: "Uniswap" },
+      {
+        id: "uniswap_v3",
+        name: "Uniswap V3",
+        family: "Uniswap",
+        // Confirmed Uniswap v3 Ethereum mainnet subgraph.
+        subgraph: { id: "5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV", schema: "uniswap-v3" },
+      },
       { id: "pancakeswap-v3-ethereum", name: "PancakeSwap V3", family: "PancakeSwap" },
       { id: "sushiswap-v3-ethereum", name: "SushiSwap V3", family: "SushiSwap" },
     ],

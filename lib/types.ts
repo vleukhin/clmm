@@ -34,6 +34,8 @@ export interface Pool {
   feeApr7d?: number | null;
   /** Fee APR from 30d volume, as a fraction. */
   feeApr30d?: number | null;
+  /** Source of the APR figures: real subgraph fees vs OHLCV estimate. */
+  aprSource?: "fees" | "estimate";
   /** 24h price change of base token, percent. */
   priceChange24h: number | null;
   /** 24h transaction count. */
@@ -77,6 +79,9 @@ export type SortKey =
 export interface PoolApr {
   feeApr7d: number | null;
   feeApr30d: number | null;
+  /** Where the APR came from: "fees" = real subgraph feesUSD; "estimate" =
+   * volume × feeTier from OHLCV (approximate). */
+  source?: "fees" | "estimate";
 }
 
 export interface PoolAprResponse {

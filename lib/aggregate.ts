@@ -3,10 +3,11 @@
 // (each underlying fetch uses `revalidate: 60`), so filtering/sorting is done
 // cheaply on the client from this single payload.
 
-import { MAX_APR_POOLS, NETWORKS, PAGES_PER_DEX } from "./config";
+import { MAX_APR_POOLS, NETWORKS, NETWORKS_BY_ID, PAGES_PER_DEX } from "./config";
 import { computeFeeApr, sumWindow } from "./apr";
 import { fetchDailyVolumes, fetchPoolsPage } from "./geckoterminal";
 import { normalizePool } from "./normalize";
+import { fetchSubgraphApr } from "./subgraphApr";
 import type { Pool, PoolApr, PoolAprResponse, PoolsResponse } from "./types";
 
 export async function getAllPools(): Promise<PoolsResponse> {
@@ -50,21 +51,37 @@ export async function getAllPools(): Promise<PoolsResponse> {
   };
 }
 
+function hasSubgraph(pool: Pool): boolean {
+  const dex = NETWORKS_BY_ID[pool.networkId]?.dexes.find(
+    (d) => d.id === pool.dexId,
+  );
+  return Boolean(dex?.subgraph);
+}
+
 /**
- * Enrich pools with 7d/30d fee APR from daily OHLCV. One OHLCV request per pool,
- * so only the top `MAX_APR_POOLS` by TVL are enriched; the underlying fetches are
- * cached for 30 min. Returns a map keyed by pool id.
+ * Enrich pools with 7d/30d fee APR. Pools whose DEX has a subgraph get real
+ * accrued fees (batched, uncapped). Everything else — including subgraph pools
+ * that returned no data or when THEGRAPH_API_KEY is unset — falls back to the
+ * OHLCV volume estimate, capped to the top `MAX_APR_POOLS` by TVL to bound
+ * per-pool requests. Returns a map keyed by pool id.
  */
 export async function getPoolApr(): Promise<PoolAprResponse> {
   const warnings: string[] = [];
   const { pools } = await getAllPools();
 
-  const targets = [...pools]
+  // 1) Real fees via subgraph for pools whose DEX has one configured.
+  const subgraphPools = pools.filter(hasSubgraph);
+  const subgraphApr = await fetchSubgraphApr(subgraphPools, warnings);
+
+  // 2) OHLCV estimate for the rest (and any subgraph pool without data / no key),
+  //    capped by TVL so we don't blow the GeckoTerminal rate limit.
+  const fallbackTargets = pools
+    .filter((p) => !subgraphApr.has(p.id))
     .sort((a, b) => b.tvlUsd - a.tvlUsd)
     .slice(0, MAX_APR_POOLS);
 
-  const entries = await Promise.all(
-    targets.map(async (pool): Promise<[string, PoolApr]> => {
+  const fallbackEntries = await Promise.all(
+    fallbackTargets.map(async (pool): Promise<[string, PoolApr]> => {
       const daily = await fetchDailyVolumes(pool.networkId, pool.address, warnings);
       const vol7d = sumWindow(daily, 7);
       const vol30d = sumWindow(daily, 30);
@@ -79,13 +96,17 @@ export async function getPoolApr(): Promise<PoolAprResponse> {
             vol30d != null
               ? computeFeeApr(vol30d, pool.tvlUsd, pool.feeTier, 30)
               : null,
+          source: "estimate",
         },
       ];
     }),
   );
 
+  const aprById: Record<string, PoolApr> = Object.fromEntries(fallbackEntries);
+  for (const [id, apr] of subgraphApr) aprById[id] = apr;
+
   return {
-    aprById: Object.fromEntries(entries),
+    aprById,
     generatedAt: new Date().toISOString(),
     warnings,
   };

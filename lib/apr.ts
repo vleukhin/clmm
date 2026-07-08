@@ -27,6 +27,23 @@ export function computeFeeApr(
   return (fees / tvlUsd) * (DAYS_PER_YEAR / days);
 }
 
+/**
+ * Fee APR from real accrued fees (subgraph feesUSD summed over a window).
+ * @param feesUsd  total fees over `days`.
+ * @param tvlUsd   current TVL (denominator; we use GeckoTerminal's for
+ *                 consistency with the displayed TVL column).
+ * @returns annualized fee APR as a fraction, or null if inputs are insufficient.
+ */
+export function feeAprFromFees(
+  feesUsd: number,
+  tvlUsd: number,
+  days: number,
+): number | null {
+  if (tvlUsd <= 0 || days <= 0) return null;
+  if (!Number.isFinite(feesUsd) || feesUsd < 0) return null;
+  return (feesUsd / tvlUsd) * (DAYS_PER_YEAR / days);
+}
+
 /** Sum the first `n` daily volumes (newest-first array). Returns null if the
  * series is too short to cover the window. */
 export function sumWindow(dailyVolumes: number[], n: number): number | null {
