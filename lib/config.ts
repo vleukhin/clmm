@@ -39,14 +39,23 @@ function lc<T>(entries: Record<string, T>): Record<string, T> {
   );
 }
 
-// Uniswap-schema DEXes still needing a subgraph `id` (find on Graph Explorer,
-// verify the indexer is active, then add a `subgraph` field like eth/uniswap_v3):
-//   eth/pancakeswap-v3-ethereum, eth/sushiswap-v3-ethereum,
-//   bsc/pancakeswap-v3-bsc, bsc/uniswap-bsc,
-//   arbitrum/uniswap_v3_arbitrum, arbitrum/pancakeswap-v3-arbitrum,
-//   base/uniswap-v3-base, base/pancakeswap-v3-base,
-//   polygon_pos/uniswap_v3_polygon_pos, polygon_pos/sushiswap-v3-polygon
-// Until filled, those pools fall back to the OHLCV volume estimate.
+// Uniswap-schema DEXes still needing a verified subgraph `id`. Candidate ids
+// below were collected from Graph Explorer search results but are UNVERIFIED —
+// before adding a `subgraph` field, confirm with a live key that the id (a) has
+// an active indexer, (b) serves the uniswap-v3 schema (poolDayDatas.feesUSD),
+// and (c) returns rows for a known pool address of that chain+dex:
+//   arbitrum/uniswap_v3_arbitrum    → 8sE6rTNkPhzZXZC6c8UQy2ghFTu5PPdGauwUBm4t7HZ1
+//   base/uniswap-v3-base            → HMuAwufqZ1YCRmzL2SfHTVkzZovC9VL2UAKhjvRqKiR1
+//                                   or FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS
+//   polygon_pos/uniswap_v3_polygon_pos → 3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm
+//   bsc/uniswap-bsc                 → 8f1KyiuNYiNGrjagzEVpf6k6KkPG517prtjdrJihgHw
+//   bsc/pancakeswap-v3-bsc          → Hv1GncLY5docZoGtXjo4kwbTvxm3MAhVZqBZE4sUT9eZ
+//                                   or 78EUqzJmEVJsAKvWghn7qotf9LVGqcTQxJhT5z84ZmgJ
+//   eth/sushiswap-v3-ethereum       → 2tGWMrDha4164KkFAfkU3rDCtuxGb4q1emXmFdLLzJ8x
+//   eth/pancakeswap-v3-ethereum     → 8MxbjYK5kVYjV6aY947ZuPfwMHz3CDh4b3u7QxDLGBLS (low confidence)
+//   arbitrum/pancakeswap-v3-arbitrum, base/pancakeswap-v3-base,
+//   polygon_pos/sushiswap-v3-polygon → not found yet
+// Until verified+filled, those pools fall back to the OHLCV volume estimate.
 export const NETWORKS: NetworkConfig[] = [
   {
     id: "eth",
