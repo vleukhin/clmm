@@ -17,11 +17,12 @@ export interface RangeWidth {
   m: number | null;
 }
 
-export type RangeWidthKey = "5" | "10" | "25" | "50" | "full";
+export type RangeWidthKey = "5" | "10" | "15" | "25" | "50" | "full";
 
 export const RANGE_WIDTHS: RangeWidth[] = [
   { key: "5", label: "±5%", m: 1.05 },
   { key: "10", label: "±10%", m: 1.1 },
+  { key: "15", label: "±15%", m: 1.15 },
   { key: "25", label: "±25%", m: 1.25 },
   { key: "50", label: "±50%", m: 1.5 },
   { key: "full", label: "Full", m: null },
