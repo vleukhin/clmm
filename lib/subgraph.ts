@@ -33,7 +33,9 @@ export async function querySubgraph<T>(
     return null;
   }
 
-  const cacheKey = `${subgraphId}:${JSON.stringify(variables)}`;
+  // Key includes the query text so changing a query's shape (adding a field)
+  // never returns a cached payload from the old shape.
+  const cacheKey = `${subgraphId}:${query}:${JSON.stringify(variables)}`;
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value as T;
 

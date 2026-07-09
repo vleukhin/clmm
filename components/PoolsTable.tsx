@@ -136,11 +136,10 @@ function netAprCell(p: Pool, loading: boolean) {
 function netAprTitle(p: Pool, widthLabel: string): string | undefined {
   const r = p.rangeApr;
   if (!r) return undefined;
-  const src = p.rangeAprSource === "fees" ? "real fees" : "volume estimate";
   return (
-    `Net range APR (${widthLabel}) over ${p.rangeAprDays ?? "?"}d — ` +
-    `fees +${formatApr(r.feeApr)}, IL ${formatApr(r.ilApr)}, ` +
-    `in range ${formatPercent(r.timeInRange * 100, 0)} · ${src}`
+    `Net range APR (${widthLabel}) over ${p.rangeAprDays ?? "?"}d, from your ` +
+    `share of in-range liquidity — fees +${formatApr(r.feeApr)}, ` +
+    `IL ${formatApr(r.ilApr)}, in range ${formatPercent(r.timeInRange * 100, 0)}`
   );
 }
 

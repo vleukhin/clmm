@@ -24,8 +24,9 @@ export function formatRatio(ratio: number): string {
 export function formatApr(apr: number | null | undefined): string {
   if (apr == null || !Number.isFinite(apr)) return "—";
   const pct = apr * 100;
-  if (pct >= 1000) return `${(pct / 1000).toFixed(1)}Kx`;
-  return `${pct.toFixed(pct < 10 ? 1 : 0)}%`;
+  const abs = Math.abs(pct);
+  if (abs >= 1000) return `${Math.round(pct).toLocaleString("en-US")}%`;
+  return `${pct.toFixed(abs < 10 ? 1 : 0)}%`;
 }
 
 export function formatFeeTier(fee: number | null): string {
