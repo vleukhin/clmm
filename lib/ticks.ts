@@ -34,10 +34,6 @@ export interface TickPoolMeta {
   sqrtPrice: string;
   /** In-range liquidity reported by the pool, 128-bit, as a decimal string. */
   liquidity: string;
-  /** Fee tier as a fraction (e.g. 0.0005 for 0.05%). */
-  feeTier: number;
-  /** Raw subgraph fee tier in hundredths of a bip (e.g. "500"). */
-  feeTierRaw: string;
   token0: TickPoolToken;
   token1: TickPoolToken;
 }
@@ -92,13 +88,16 @@ function priceFromSqrtPrice(
 // Subgraph queries
 // ---------------------------------------------------------------------------
 
+// NOTE: no fee field here on purpose — Uniswap-style subgraphs call it
+// `feeTier` while Algebra forks (Camelot/THENA/QuickSwap) expose a dynamic
+// `fee`/`feeZtO` instead, and requesting a missing field fails the whole
+// query. The UI takes the fee tier from the GeckoTerminal pool row instead.
 const POOL_QUERY = `
   query($poolId: ID!) {
     pool(id: $poolId) {
       tick
       liquidity
       sqrtPrice
-      feeTier
       token0 { symbol decimals }
       token1 { symbol decimals }
     }
@@ -124,7 +123,6 @@ interface SubgraphPool {
   tick: string | null;
   liquidity: string;
   sqrtPrice: string;
-  feeTier: string;
   token0: { symbol: string; decimals: string };
   token1: { symbol: string; decimals: string };
 }
@@ -244,8 +242,6 @@ export async function poolTickData(
       currentPrice1per0: priceFromSqrtPrice(pool.sqrtPrice, decimals0, decimals1),
       sqrtPrice: pool.sqrtPrice,
       liquidity: pool.liquidity,
-      feeTier: Number(pool.feeTier) / 1_000_000,
-      feeTierRaw: pool.feeTier,
       token0: { symbol: pool.token0.symbol, decimals: decimals0 },
       token1: { symbol: pool.token1.symbol, decimals: decimals1 },
     },

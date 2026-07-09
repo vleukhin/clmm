@@ -4,8 +4,12 @@
 
 import type { BaseAsset } from "./types";
 
-/** Subgraph schema families we have an adapter for. Only "uniswap-v3" today
- * (covers Uniswap v3 and its forks: PancakeSwap v3, SushiSwap v3). */
+/** Subgraph query dialects we support. "uniswap-v3" means the Uniswap-v3-info
+ * dialect: `poolDayDatas { date feesUSD }`, `pool { tick liquidity sqrtPrice }`,
+ * `ticks { tickIdx liquidityNet }`. Verified live: Algebra forks (Camelot,
+ * THENA, QuickSwap) and Aerodrome Slipstream speak it too — they differ only
+ * in the Pool fee field (`fee`/`feeZtO` vs `feeTier`), which we deliberately
+ * don't query (see lib/ticks.ts POOL_QUERY). */
 export type SubgraphSchema = "uniswap-v3";
 
 export interface DexConfig {
@@ -39,17 +43,15 @@ function lc<T>(entries: Record<string, T>): Record<string, T> {
   );
 }
 
-// Every `subgraph.id` below was verified live (2026-07-08): active indexer,
-// uniswap-v3 schema (poolDayDatas.feesUSD), rows for our pool addresses, data
-// fresh same-day. Re-verify the same way before adding new ids.
-// Still WITHOUT a working subgraph (fall back to OHLCV estimate):
+// Every `subgraph.id` below was verified live (2026-07-08/09): active indexer,
+// uniswap-v3 query dialect (poolDayDatas.feesUSD), rows for real pool addresses
+// of that chain+dex, data fresh same-day. Re-verify the same way before adding
+// new ids. Still WITHOUT a working subgraph (fall back to OHLCV estimate):
 //   bsc/pancakeswap-v3-bsc  — A1fvJWQLBeUAggX2WQTMm3FKjXTekNXo77ZySun4YN2m exists
-//     but gateway returned "bad indexers" (retry later);
+//     but its indexers persistently fail attestation (retried 2026-07-09);
 //     Hv1GncLY5docZoGtXjo4kwbTvxm3MAhVZqBZE4sUT9eZ has the schema but 0 rows
 //     for our BSC pools (wrong chain/deployment)
-//   bsc/uniswap-bsc, bsc/thena-fusion (Algebra), arbitrum/pancakeswap-v3-arbitrum,
-//   arbitrum/camelot-v3 (Algebra), base/pancakeswap-v3-base,
-//   base/aerodrome-slipstream (own schema), polygon_pos/quickswap_v3 (Algebra),
+//   bsc/uniswap-bsc, arbitrum/pancakeswap-v3-arbitrum, base/pancakeswap-v3-base,
 //   polygon_pos/sushiswap-v3-polygon
 export const NETWORKS: NetworkConfig[] = [
   {
@@ -96,7 +98,12 @@ export const NETWORKS: NetworkConfig[] = [
     dexes: [
       { id: "pancakeswap-v3-bsc", name: "PancakeSwap V3", family: "PancakeSwap" },
       { id: "uniswap-bsc", name: "Uniswap V3", family: "Uniswap" },
-      { id: "thena-fusion", name: "THENA Fusion", family: "THENA" },
+      {
+        id: "thena-fusion",
+        name: "THENA Fusion",
+        family: "THENA",
+        subgraph: { id: "Hnjf3ipVMCkQze3jmHp8tpSMgPmtPnXBR38iM4ix1cLt", schema: "uniswap-v3" },
+      },
     ],
     volatile: lc({
       "0x2170Ed0880ac9A755fd29B2688956BD959F933F8": { asset: "ETH", symbol: "ETH" },
@@ -120,7 +127,12 @@ export const NETWORKS: NetworkConfig[] = [
         subgraph: { id: "FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM", schema: "uniswap-v3" },
       },
       { id: "pancakeswap-v3-arbitrum", name: "PancakeSwap V3", family: "PancakeSwap" },
-      { id: "camelot-v3", name: "Camelot V3", family: "Camelot" },
+      {
+        id: "camelot-v3",
+        name: "Camelot V3",
+        family: "Camelot",
+        subgraph: { id: "7mPnp1UqmefcCycB8umy4uUkTkFxMoHn1Y7ncBUscePp", schema: "uniswap-v3" },
+      },
     ],
     volatile: lc({
       "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1": { asset: "ETH", symbol: "WETH" },
@@ -143,7 +155,12 @@ export const NETWORKS: NetworkConfig[] = [
         family: "Uniswap",
         subgraph: { id: "43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG", schema: "uniswap-v3" },
       },
-      { id: "aerodrome-slipstream", name: "Aerodrome Slipstream", family: "Aerodrome" },
+      {
+        id: "aerodrome-slipstream",
+        name: "Aerodrome Slipstream",
+        family: "Aerodrome",
+        subgraph: { id: "GENunSHWLBXm59mBSgPzQ8metBEp9YDfdqwFr91Av1UM", schema: "uniswap-v3" },
+      },
       { id: "pancakeswap-v3-base", name: "PancakeSwap V3", family: "PancakeSwap" },
     ],
     volatile: lc({
@@ -166,7 +183,12 @@ export const NETWORKS: NetworkConfig[] = [
         family: "Uniswap",
         subgraph: { id: "3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm", schema: "uniswap-v3" },
       },
-      { id: "quickswap_v3", name: "QuickSwap V3", family: "QuickSwap" },
+      {
+        id: "quickswap_v3",
+        name: "QuickSwap V3",
+        family: "QuickSwap",
+        subgraph: { id: "FqsRcH1XqSjqVx9GRTvEJe959aCbKrcyGgDWBrUkG24g", schema: "uniswap-v3" },
+      },
       { id: "sushiswap-v3-polygon", name: "SushiSwap V3", family: "SushiSwap" },
     ],
     volatile: lc({
