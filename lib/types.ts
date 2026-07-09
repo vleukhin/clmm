@@ -1,5 +1,7 @@
 // Domain types for the CLMM pool analytics app.
 
+import type { RangeAprPoint, RangeWidthKey } from "./netApr";
+
 export type BaseAsset = "ETH" | "BTC";
 
 /** A normalized CLMM pool ready for display. */
@@ -39,6 +41,12 @@ export interface Pool {
   feeApr30d?: number | null;
   /** Source of the APR figures: real subgraph fees vs OHLCV estimate. */
   aprSource?: "fees" | "estimate";
+  /** Net range APR for the currently selected band width, merged client-side
+   * from /api/pools/range-apr. undefined until that resolves. */
+  rangeApr?: RangeAprPoint | null;
+  rangeAprSource?: "fees" | "estimate";
+  /** Daily samples behind the range backtest (for the tooltip). */
+  rangeAprDays?: number;
   /** 24h price change of base token, percent. */
   priceChange24h: number | null;
   /** 24h transaction count. */
@@ -76,7 +84,8 @@ export type SortKey =
   | "volumeToTvl"
   | "feeTier"
   | "feeApr7d"
-  | "feeApr30d";
+  | "feeApr30d"
+  | "netRangeApr";
 
 /** Per-pool fee APR enrichment returned by /api/pools/apr, keyed by pool id. */
 export interface PoolApr {
@@ -89,6 +98,20 @@ export interface PoolApr {
 
 export interface PoolAprResponse {
   aprById: Record<string, PoolApr>;
+  generatedAt: string;
+  warnings: string[];
+}
+
+/** Net range APR for every preset band width, per pool (from /api/pools/range-apr). */
+export interface PoolRangeApr {
+  widths: Record<RangeWidthKey, RangeAprPoint | null>;
+  source: "fees" | "estimate";
+  /** Daily samples the backtest used. */
+  days: number;
+}
+
+export interface PoolRangeAprResponse {
+  byId: Record<string, PoolRangeApr>;
   generatedAt: string;
   warnings: string[];
 }

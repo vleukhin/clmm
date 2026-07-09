@@ -2,6 +2,7 @@
 
 import { DEX_FAMILIES, FEE_TIERS, NETWORKS, STABLE_SYMBOLS } from "@/lib/config";
 import { DEFAULT_FILTERS, type FilterState } from "@/lib/filters";
+import { RANGE_WIDTHS } from "@/lib/netApr";
 import type { BaseAsset } from "@/lib/types";
 
 interface Props {
@@ -192,6 +193,19 @@ export function PoolsFilters({ filters, onChange, shown, total }: Props) {
               onClick={() => set({ feeTiers: toggle(filters.feeTiers, t.value) })}
             >
               {t.label}
+            </Chip>
+          ))}
+        </Group>
+
+        <Group label="Net APR range">
+          {RANGE_WIDTHS.map((w) => (
+            <Chip
+              key={w.key}
+              active={filters.rangeWidth === w.key}
+              color="var(--chart-range)"
+              onClick={() => set({ rangeWidth: w.key })}
+            >
+              {w.label}
             </Chip>
           ))}
         </Group>

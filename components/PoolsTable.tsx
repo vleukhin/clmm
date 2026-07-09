@@ -104,20 +104,64 @@ const APR_TITLE: Record<"fees" | "estimate", string> = {
   estimate: "Estimated fee APR (24h-style volume × fee tier ÷ TVL)",
 };
 
+/** Diverging pill for net range APR: teal when positive, red when negative;
+ * intensity scales with magnitude. Estimates get a leading "≈". */
+function netAprCell(p: Pool, loading: boolean) {
+  const r = p.rangeApr;
+  if (loading && r === undefined) {
+    return (
+      <span className="tnum inline-block h-5 w-14 animate-pulse rounded bg-surface-hover align-middle" />
+    );
+  }
+  if (r == null) return <span className="tnum text-text-faint">—</span>;
+  const v = r.netApr;
+  const pos = v >= 0;
+  const base = pos ? "var(--pos)" : "var(--neg)";
+  const t = Math.max(0, Math.min(1, Math.abs(v) / 0.5));
+  return (
+    <span
+      className="tnum inline-block rounded-md px-2 py-1 text-xs font-semibold"
+      style={{
+        background: `color-mix(in oklab, ${base} ${Math.round(t * 20)}%, transparent)`,
+        color: t > 0.1 ? base : "var(--text-muted)",
+      }}
+    >
+      {p.rangeAprSource === "estimate" && <span className="text-text-faint">≈</span>}
+      {pos ? "" : "−"}
+      {formatApr(Math.abs(v))}
+    </span>
+  );
+}
+
+function netAprTitle(p: Pool, widthLabel: string): string | undefined {
+  const r = p.rangeApr;
+  if (!r) return undefined;
+  const src = p.rangeAprSource === "fees" ? "real fees" : "volume estimate";
+  return (
+    `Net range APR (${widthLabel}) over ${p.rangeAprDays ?? "?"}d — ` +
+    `fees +${formatApr(r.feeApr)}, IL ${formatApr(r.ilApr)}, ` +
+    `in range ${formatPercent(r.timeInRange * 100, 0)} · ${src}`
+  );
+}
+
 export function PoolsTable({
   pools,
   sort,
   onSort,
   aprLoading,
+  rangeLoading,
+  rangeWidthLabel,
 }: {
   pools: Pool[];
   sort: SortState;
   onSort: (key: SortKey) => void;
   aprLoading: boolean;
+  rangeLoading: boolean;
+  rangeWidthLabel: string;
 }) {
   return (
     <div className="scroll-x overflow-x-auto rounded-2xl border border-border-soft">
-      <table className="w-full min-w-[980px] border-collapse text-sm">
+      <table className="w-full min-w-[1080px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border">
             <th className="sticky top-0 z-10 bg-bg-elev px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-text-faint">
@@ -137,6 +181,12 @@ export function PoolsTable({
             <SortHeader
               label="Vol / TVL"
               col="volumeToTvl"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortHeader
+              label={`Net APR ${rangeWidthLabel}`}
+              col="netRangeApr"
               sort={sort}
               onSort={onSort}
             />
@@ -239,6 +289,11 @@ export function PoolsTable({
                 >
                   {formatRatio(p.volumeToTvl)}
                 </span>
+              </td>
+
+              {/* Net range APR (selected width) */}
+              <td className="px-2 py-2 text-right" title={netAprTitle(p, rangeWidthLabel)}>
+                {netAprCell(p, rangeLoading)}
               </td>
 
               {/* Fee APR 7d / 30d */}

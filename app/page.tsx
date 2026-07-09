@@ -13,7 +13,13 @@ import {
   type FilterState,
   type SortState,
 } from "@/lib/filters";
-import type { PoolAprResponse, PoolsResponse, SortKey } from "@/lib/types";
+import type {
+  PoolAprResponse,
+  PoolRangeAprResponse,
+  PoolsResponse,
+  SortKey,
+} from "@/lib/types";
+import { RANGE_WIDTHS } from "@/lib/netApr";
 
 async function fetchPools(): Promise<PoolsResponse> {
   const res = await fetch("/api/pools");
@@ -24,6 +30,12 @@ async function fetchPools(): Promise<PoolsResponse> {
 async function fetchApr(): Promise<PoolAprResponse> {
   const res = await fetch("/api/pools/apr");
   if (!res.ok) throw new Error(`APR request failed: ${res.status}`);
+  return res.json();
+}
+
+async function fetchRangeApr(): Promise<PoolRangeAprResponse> {
+  const res = await fetch("/api/pools/range-apr");
+  if (!res.ok) throw new Error(`Range APR request failed: ${res.status}`);
   return res.json();
 }
 
@@ -63,18 +75,39 @@ export default function Home() {
     staleTime: 30 * 60_000,
   });
 
-  // Merge APR into pools so filtering/sorting can use it.
+  // Net range APR (per band width) loads separately and is merged in too.
+  const rangeQuery = useQuery({
+    queryKey: ["pools-range"],
+    queryFn: fetchRangeApr,
+    staleTime: 30 * 60_000,
+  });
+
+  // Merge APR + net range APR (for the selected band width) into pools so
+  // filtering/sorting can use them.
   const allPools = useMemo(() => {
     const pools = data?.pools ?? [];
     const aprById = aprQuery.data?.aprById;
-    if (!aprById) return pools;
-    return pools.map((p) => ({
-      ...p,
-      feeApr7d: aprById[p.id]?.feeApr7d ?? null,
-      feeApr30d: aprById[p.id]?.feeApr30d ?? null,
-      aprSource: aprById[p.id]?.source,
-    }));
-  }, [data?.pools, aprQuery.data]);
+    const rangeById = rangeQuery.data?.byId;
+    return pools.map((p) => {
+      const apr = aprById?.[p.id];
+      const range = rangeById?.[p.id];
+      return {
+        ...p,
+        // Leave fields undefined until the query resolves so the cells show a
+        // loading skeleton rather than "—".
+        ...(aprById
+          ? { feeApr7d: apr?.feeApr7d ?? null, feeApr30d: apr?.feeApr30d ?? null, aprSource: apr?.source }
+          : {}),
+        ...(rangeById
+          ? {
+              rangeApr: range ? range.widths[filters.rangeWidth] : null,
+              rangeAprSource: range?.source,
+              rangeAprDays: range?.days,
+            }
+          : {}),
+      };
+    });
+  }, [data?.pools, aprQuery.data, rangeQuery.data, filters.rangeWidth]);
 
   const visible = useMemo(
     () => applyFilters(allPools, filters, sort),
@@ -82,6 +115,7 @@ export default function Home() {
   );
 
   const aprLoading = aprQuery.isLoading;
+  const rangeLoading = rangeQuery.isLoading;
 
   const onSort = (key: SortKey) =>
     setSort((s) =>
@@ -100,8 +134,8 @@ export default function Home() {
           </h1>
           <p className="mt-1 max-w-xl text-sm text-text-muted">
             Concentrated-liquidity pools — ETH &amp; BTC vs stablecoins across
-            Uniswap, PancakeSwap and more. Sorted by turnover (Vol/TVL), a proxy
-            for fee yield.
+            Uniswap, PancakeSwap and more. Ranked by net range APR: backtested
+            fees minus impermanent loss for the selected band width.
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-text-faint">
@@ -152,6 +186,10 @@ export default function Home() {
             sort={sort}
             onSort={onSort}
             aprLoading={aprLoading}
+            rangeLoading={rangeLoading}
+            rangeWidthLabel={
+              RANGE_WIDTHS.find((w) => w.key === filters.rangeWidth)?.label ?? ""
+            }
           />
         )}
       </div>

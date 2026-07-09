@@ -2,6 +2,7 @@
 // URL (query-string) serialization so a filtered view is shareable.
 
 import type { BaseAsset, Pool, SortKey } from "./types";
+import { DEFAULT_WIDTH, RANGE_WIDTHS, type RangeWidthKey } from "./netApr";
 
 export interface FilterState {
   /** Selected network ids; empty = all. */
@@ -19,6 +20,9 @@ export interface FilterState {
   /** Minimum volume/TVL as a percentage value (e.g. 20 = 20%). */
   minVolumeToTvlPct: number | null;
   search: string;
+  /** Band width for the net range APR column/ranking (not a filter — a
+   * simulation parameter persisted alongside the filters). */
+  rangeWidth: RangeWidthKey;
 }
 
 export interface SortState {
@@ -36,9 +40,12 @@ export const DEFAULT_FILTERS: FilterState = {
   minVolume: null,
   minVolumeToTvlPct: null,
   search: "",
+  rangeWidth: DEFAULT_WIDTH,
 };
 
-export const DEFAULT_SORT: SortState = { key: "volumeToTvl", dir: "desc" };
+// The list is a ranking tool: default to net range APR (falls back to the
+// server's Vol/TVL order — a stable sort — until the range data loads).
+export const DEFAULT_SORT: SortState = { key: "netRangeApr", dir: "desc" };
 
 export function applyFilters(
   pools: Pool[],
@@ -74,7 +81,10 @@ export function applyFilters(
   out.sort((a, b) => {
     const av = sortValue(a, sort.key);
     const bv = sortValue(b, sort.key);
-    return (av - bv) * dir;
+    // NaN/Infinity-safe: equal (incl. two missing sentinels) => 0, so JS's
+    // stable sort preserves the incoming order (server's Vol/TVL ranking).
+    const d = av < bv ? -1 : av > bv ? 1 : 0;
+    return d * dir;
   });
   return out;
 }
@@ -93,6 +103,9 @@ function sortValue(p: Pool, key: SortKey): number {
       return p.feeApr7d ?? -1;
     case "feeApr30d":
       return p.feeApr30d ?? -1;
+    case "netRangeApr":
+      // Missing sinks to the bottom regardless of direction handling above.
+      return p.rangeApr?.netApr ?? -Infinity;
   }
 }
 
@@ -112,6 +125,7 @@ export function filtersToParams(
   if (f.minVolume != null) p.set("minvol", String(f.minVolume));
   if (f.minVolumeToTvlPct != null) p.set("minratio", String(f.minVolumeToTvlPct));
   if (f.search) p.set("q", f.search);
+  if (f.rangeWidth !== DEFAULT_WIDTH) p.set("range", f.rangeWidth);
   if (sort.key !== DEFAULT_SORT.key) p.set("sort", sort.key);
   if (sort.dir !== DEFAULT_SORT.dir) p.set("dir", sort.dir);
   return p;
@@ -144,6 +158,9 @@ export function paramsToFilters(p: URLSearchParams): {
     minVolume: numOrNull("minvol"),
     minVolumeToTvlPct: numOrNull("minratio"),
     search: p.get("q") ?? "",
+    rangeWidth: RANGE_WIDTHS.some((w) => w.key === p.get("range"))
+      ? (p.get("range") as RangeWidthKey)
+      : DEFAULT_WIDTH,
   };
 
   const sortKey = p.get("sort");
@@ -154,6 +171,7 @@ export function paramsToFilters(p: URLSearchParams): {
     "feeTier",
     "feeApr7d",
     "feeApr30d",
+    "netRangeApr",
   ];
   const sort: SortState = {
     key: validKeys.includes(sortKey as SortKey)
