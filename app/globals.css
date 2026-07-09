@@ -21,6 +21,9 @@
   --pos: #34d399;
   --neg: #f87171;
   --radius: 12px;
+  /* Chart palette — validated (dataviz six checks) against --surface in dark mode. */
+  --chart-data: #0d9488;
+  --chart-range: #8b5cf6;
 }
 
 @theme inline {

@@ -4,12 +4,12 @@
 // computes volatility statistics over the series, and provides an inversion
 // helper so callers can flip the price orientation.
 //
-// Orientation note (verified live): GeckoTerminal normalizes pool token order
-// so the "interesting" token is base (e.g. the USDC/WETH 0.05% Uniswap pool
-// reports base=WETH, quote=USDC). We request `currency=usd`, so candles are the
-// BASE token price in USD and volume is in USD. For this app's universe
-// (volatile <-> stable pools) that is already the volatile-asset-in-stable
-// orientation; `invertSeries` flips to 1/x for callers that need the other one.
+// Orientation note (verified live): which token is GeckoTerminal's "base"
+// varies PER POOL (e.g. the USDC/WETH 0.05% pool reports base=WETH, but the
+// 0.01% pool reports base=USDC). Candles are the price of ONE side in USD, so
+// callers must pass `tokenSide` ("base" | "quote") for the token they want —
+// for this app, the volatile side (see Pool.volatileIsBase). `invertSeries`
+// remains for flipping a ratio series, not for fixing a wrong-side request.
 //
 // NOTE: lib/geckoterminal.ts owns the same limiter/retry pattern but does not
 // export those internals, and it must not be modified while other work is in
@@ -140,9 +140,10 @@ export async function fetchPriceHistory(
   poolAddress: string,
   days = 90,
   warnings: string[] = [],
+  tokenSide: "base" | "quote" = "base",
 ): Promise<DailyCandle[] | null> {
   const address = poolAddress.toLowerCase();
-  const cacheKey = `${networkId}_${address}_${days}`;
+  const cacheKey = `${networkId}_${address}_${days}_${tokenSide}`;
   const hit = historyCache.get(cacheKey);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
     return hit.candles.map((c) => ({ ...c }));
@@ -152,7 +153,8 @@ export async function fetchPriceHistory(
   // candle per day means limit=days covers the window (newest = today).
   const url =
     `${GECKOTERMINAL_API}/networks/${networkId}/pools/${address}/ohlcv/day` +
-    `?aggregate=1&limit=${Math.min(Math.max(1, Math.round(days)), 1000)}&currency=usd`;
+    `?aggregate=1&limit=${Math.min(Math.max(1, Math.round(days)), 1000)}` +
+    `&currency=usd&token=${tokenSide}`;
 
   return limit(async () => {
     try {

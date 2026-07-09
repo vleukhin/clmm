@@ -82,11 +82,20 @@ export async function GET(
 
   const invert = searchParams.get("invert") === "1";
 
+  // Which side of the pool to price ("base" default). The volatile side varies
+  // per pool on GeckoTerminal — the client passes it from Pool.volatileIsBase.
+  const sideRaw = searchParams.get("side");
+  const tokenSide = sideRaw === "quote" ? "quote" : "base";
+  if (sideRaw !== null && sideRaw !== "base" && sideRaw !== "quote") {
+    warnings.push(`side=${sideRaw} is not "base"|"quote"; using "base"`);
+  }
+
   const candles = await fetchPriceHistory(
     parsed.networkId,
     parsed.address,
     days,
     warnings,
+    tokenSide,
   );
   if (candles === null) {
     const body: PoolHistoryResponse = {

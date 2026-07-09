@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { SortState } from "@/lib/filters";
 import {
   formatApr,
@@ -161,21 +162,27 @@ export function PoolsTable({
             >
               {/* Pool + pair */}
               <td className="px-3 py-2.5">
-                <a
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col gap-0.5"
-                >
+                <div className="flex flex-col gap-0.5">
                   <span className="flex items-center gap-1.5 font-medium text-text">
-                    <span style={{ color: p.baseAsset === "ETH" ? "var(--eth)" : "var(--btc)" }}>
-                      {p.volatileSymbol}
-                    </span>
-                    <span className="text-text-faint">/</span>
-                    <span className="text-text-muted">{p.stableSymbol}</span>
-                    <span className="ml-1 text-text-faint opacity-0 transition-opacity group-hover:opacity-100">
+                    <Link
+                      href={`/pools/${encodeURIComponent(p.id)}`}
+                      className="flex items-center gap-1.5 hover:underline"
+                    >
+                      <span style={{ color: p.baseAsset === "ETH" ? "var(--eth)" : "var(--btc)" }}>
+                        {p.volatileSymbol}
+                      </span>
+                      <span className="text-text-faint">/</span>
+                      <span className="text-text-muted">{p.stableSymbol}</span>
+                    </Link>
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open on GeckoTerminal"
+                      className="ml-1 text-text-faint opacity-0 transition-opacity hover:text-accent group-hover:opacity-100"
+                    >
                       ↗
-                    </span>
+                    </a>
                   </span>
                   {p.priceChange24h != null && (
                     <span
@@ -189,7 +196,7 @@ export function PoolsTable({
                       {formatPercent(p.priceChange24h)} 24h
                     </span>
                   )}
-                </a>
+                </div>
               </td>
 
               {/* DEX + network */}

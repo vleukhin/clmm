@@ -21,6 +21,9 @@ export interface Pool {
   volatileSymbol: string;
   /** Symbol of the stablecoin, e.g. "USDC". */
   stableSymbol: string;
+  /** Whether the volatile token is GeckoTerminal's "base" side of the pool.
+   * Needed to request OHLCV history for the right token (?token=base|quote). */
+  volatileIsBase: boolean;
   /** Fee tier as a fraction, e.g. 0.0005 for 0.05%. Null if unknown. */
   feeTier: number | null;
   /** Total value locked, USD. */

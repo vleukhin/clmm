@@ -51,12 +51,15 @@ export function normalizePool(
 
   let volatile: { asset: "ETH" | "BTC"; symbol: string };
   let stableSymbol: string;
+  let volatileIsBase: boolean;
   if (baseVol && quoteStable) {
     volatile = baseVol;
     stableSymbol = quoteStable;
+    volatileIsBase = true;
   } else if (quoteVol && baseStable) {
     volatile = quoteVol;
     stableSymbol = baseStable;
+    volatileIsBase = false;
   } else {
     return null; // not an ETH/BTC <-> stable pair
   }
@@ -78,6 +81,7 @@ export function normalizePool(
     baseAsset: volatile.asset,
     volatileSymbol: volatile.symbol,
     stableSymbol,
+    volatileIsBase,
     feeTier: resolveFeeTier(
       raw.attributes.name,
       raw.attributes.pool_fee_percentage,
