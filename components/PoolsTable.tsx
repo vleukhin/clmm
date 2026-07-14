@@ -10,6 +10,7 @@ import {
   formatPercent,
 } from "@/lib/format";
 import type { Pool, SortKey } from "@/lib/types";
+import { nativePoolLink } from "@/lib/dexLinks";
 
 const NETWORK_COLOR: Record<string, string> = {
   eth: "#7c9cff",
@@ -223,6 +224,25 @@ export function PoolsTable({
                       <span className="text-text-faint">/</span>
                       <span className="text-text-muted">{p.stableSymbol}</span>
                     </Link>
+                    {(() => {
+                      const native = nativePoolLink(p);
+                      if (!native) return null;
+                      return (
+                        <a
+                          href={native.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={
+                            native.exact
+                              ? `Open this pool on ${native.label}`
+                              : `Open ${native.label}'s pools page`
+                          }
+                          className="ml-1 text-[11px] text-text-faint opacity-0 transition-opacity hover:text-accent group-hover:opacity-100"
+                        >
+                          {native.label} ↗
+                        </a>
+                      );
+                    })()}
                     <a
                       href={p.url}
                       target="_blank"

@@ -7,6 +7,7 @@ import { PriceChart } from "@/components/charts/PriceChart";
 import { LiquidityChart } from "@/components/charts/LiquidityChart";
 import { RangeSimulator } from "@/components/RangeSimulator";
 import { NETWORKS_BY_ID } from "@/lib/config";
+import { nativePoolLink } from "@/lib/dexLinks";
 import { segmentsToUsdBuckets, stableIsToken0 } from "@/lib/rangeSim";
 import type { DailyCandle, PriceStats } from "@/lib/priceHistory";
 import type { LiquiditySegment, TickPoolMeta } from "@/lib/ticks";
@@ -216,6 +217,25 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
               fee {formatPercent(pool.feeTier * 100, pool.feeTier < 0.001 ? 2 : 2)}
             </span>
           )}
+          {(() => {
+            const native = nativePoolLink(pool);
+            if (!native) return null;
+            return (
+              <a
+                href={native.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={
+                  native.exact
+                    ? `Open this pool on ${native.label}`
+                    : `Open ${native.label}'s pools page`
+                }
+                className="text-xs text-text-faint transition-colors hover:text-accent"
+              >
+                {native.label} ↗
+              </a>
+            );
+          })()}
           <a
             href={pool.url}
             target="_blank"
