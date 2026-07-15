@@ -147,10 +147,12 @@ export function simulateRange(inputs: SimulationInputs): SimulationResult {
 
   // Whole-pool fee APR: prefer the real 30d figure, then 7d, then a crude
   // volume × feeTier estimate — same fallback ladder as the list columns.
+  // Dynamic-fee DEXes (Aerodrome) use the live on-chain fee, not the nominal tier.
+  const feeTier = pool.feeTierActual ?? pool.feeTier;
   const poolFeeApr =
     pool.feeApr30d ??
     pool.feeApr7d ??
-    (pool.feeTier != null ? pool.volumeToTvl * pool.feeTier * 365 : 0);
+    (feeTier != null ? pool.volumeToTvl * feeTier * 365 : 0);
 
   try {
     const tir = timeInRange(closes, paUsd, pbUsd);
@@ -205,10 +207,10 @@ export function simulateRange(inputs: SimulationInputs): SimulationResult {
     // Backtest with per-day fee APRs from real daily volumes when the fee tier
     // is known (assumes today's TVL across the window), else constant pool APR.
     const dailyFeeAprs =
-      pool.feeTier != null && pool.tvlUsd > 0
+      feeTier != null && pool.tvlUsd > 0
         ? candles
             .filter((c) => c.close > 0)
-            .map((c) => (c.volumeUsd * pool.feeTier! * 365) / pool.tvlUsd)
+            .map((c) => (c.volumeUsd * feeTier * 365) / pool.tvlUsd)
         : undefined;
     const backtest = backtestRange({
       closes,

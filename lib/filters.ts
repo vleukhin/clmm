@@ -98,7 +98,7 @@ function sortValue(p: Pool, key: SortKey): number {
     case "volumeToTvl":
       return p.volumeToTvl;
     case "feeTier":
-      return p.feeTier ?? -1;
+      return p.feeTierActual ?? p.feeTier ?? -1;
     case "feeApr7d":
       return p.feeApr7d ?? -1;
     case "feeApr30d":

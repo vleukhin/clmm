@@ -26,8 +26,13 @@ export interface Pool {
   /** Whether the volatile token is GeckoTerminal's "base" side of the pool.
    * Needed to request OHLCV history for the right token (?token=base|quote). */
   volatileIsBase: boolean;
-  /** Fee tier as a fraction, e.g. 0.0005 for 0.05%. Null if unknown. */
+  /** Nominal fee tier as a fraction, e.g. 0.0005 for 0.05% (from the pool
+   * name / creation tier). Null if unknown. */
   feeTier: number | null;
+  /** Live on-chain swap fee for dynamic-fee DEXes (Aerodrome Slipstream),
+   * where the fee module can diverge from the nominal tier. Undefined for
+   * static-fee DEXes; null if the on-chain read failed. */
+  feeTierActual?: number | null;
   /** Total value locked, USD. */
   tvlUsd: number;
   /** 24h trading volume, USD. */

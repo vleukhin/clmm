@@ -14,6 +14,7 @@ import type { LiquiditySegment, TickPoolMeta } from "@/lib/ticks";
 import type { Pool, PoolAprResponse, PoolsResponse } from "@/lib/types";
 import {
   formatApr,
+  formatFeeTier,
   formatPercent,
   formatPrice,
   formatRatio,
@@ -212,9 +213,16 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
             />
             {pool.networkName}
           </span>
-          {pool.feeTier != null && (
-            <span className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-xs text-text-muted">
-              fee {formatPercent(pool.feeTier * 100, pool.feeTier < 0.001 ? 2 : 2)}
+          {(pool.feeTierActual ?? pool.feeTier) != null && (
+            <span
+              className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-xs text-text-muted"
+              title={
+                pool.feeTierActual != null && pool.feeTierActual !== pool.feeTier
+                  ? `Live on-chain fee (nominal tier ${formatFeeTier(pool.feeTier)})`
+                  : undefined
+              }
+            >
+              fee {formatFeeTier(pool.feeTierActual ?? pool.feeTier)}
             </span>
           )}
           {(() => {

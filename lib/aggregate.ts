@@ -7,6 +7,7 @@ import { MAX_APR_POOLS, NETWORKS, NETWORKS_BY_ID, PAGES_PER_DEX } from "./config
 import { computeFeeApr, sumWindow } from "./apr";
 import { fetchDailyVolumes, fetchPoolsPage } from "./geckoterminal";
 import { normalizePool } from "./normalize";
+import { fetchPoolFees } from "./onchainFees";
 import { fetchSubgraphApr } from "./subgraphApr";
 import type { Pool, PoolApr, PoolAprResponse, PoolsResponse } from "./types";
 
@@ -44,11 +45,43 @@ export async function getAllPools(): Promise<PoolsResponse> {
     (a, b) => b.volumeToTvl - a.volumeToTvl,
   );
 
+  await enrichDynamicFees(pools, warnings);
+
   return {
     pools,
     generatedAt: new Date().toISOString(),
     warnings,
   };
+}
+
+/**
+ * Fill `feeTierActual` for pools of dynamic-fee DEXes (Aerodrome Slipstream)
+ * from the live on-chain `fee()` — the nominal tier in the pool name can be
+ * wildly off (a "1%" pool charging 0.037%). One Multicall3 request per network,
+ * memoized 30 min inside fetchPoolFees.
+ */
+async function enrichDynamicFees(pools: Pool[], warnings: string[]): Promise<void> {
+  const byRpc = new Map<string, Pool[]>();
+  for (const pool of pools) {
+    const network = NETWORKS_BY_ID[pool.networkId];
+    const dex = network?.dexes.find((d) => d.id === pool.dexId);
+    if (!dex?.dynamicFees || !network?.rpcUrl) continue;
+    const rpc = network.rpcUrl;
+    (byRpc.get(rpc) ?? byRpc.set(rpc, []).get(rpc)!).push(pool);
+  }
+
+  await Promise.all(
+    [...byRpc.entries()].map(async ([rpcUrl, group]) => {
+      const fees = await fetchPoolFees(
+        rpcUrl,
+        group.map((p) => p.address.toLowerCase()),
+        warnings,
+      );
+      for (const pool of group) {
+        pool.feeTierActual = fees.get(pool.address.toLowerCase())?.fee ?? null;
+      }
+    }),
+  );
 }
 
 function hasSubgraph(pool: Pool): boolean {
@@ -90,11 +123,11 @@ export async function getPoolApr(): Promise<PoolAprResponse> {
         {
           feeApr7d:
             vol7d != null
-              ? computeFeeApr(vol7d, pool.tvlUsd, pool.feeTier, 7)
+              ? computeFeeApr(vol7d, pool.tvlUsd, pool.feeTierActual ?? pool.feeTier, 7)
               : null,
           feeApr30d:
             vol30d != null
-              ? computeFeeApr(vol30d, pool.tvlUsd, pool.feeTier, 30)
+              ? computeFeeApr(vol30d, pool.tvlUsd, pool.feeTierActual ?? pool.feeTier, 30)
               : null,
           source: "estimate",
         },

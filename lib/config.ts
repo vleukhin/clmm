@@ -22,12 +22,20 @@ export interface DexConfig {
   /** The Graph subgraph for real fee data. Absent => APR falls back to the
    * OHLCV volume estimate. Fill `id` from Graph Explorer per (chain, dex). */
   subgraph?: { id: string; schema: SubgraphSchema };
+  /** Slipstream-style dynamic fees: the live on-chain `fee()` can differ from
+   * the static creation tier that the subgraph and the GeckoTerminal pool name
+   * carry (verified 2026-07-15: Aerodrome's "1%" cbBTC/USDC pool charges
+   * 0.037%). When set, fee-derived APRs are corrected from on-chain reads
+   * (lib/onchainFees.ts); requires `rpcUrl` on the network. */
+  dynamicFees?: boolean;
 }
 
 export interface NetworkConfig {
   /** GeckoTerminal network id, e.g. "eth". */
   id: string;
   name: string;
+  /** Public JSON-RPC endpoint, needed only by DEXes with `dynamicFees`. */
+  rpcUrl?: string;
   /** CLMM (concentrated-liquidity) DEXes to scan on this network. */
   dexes: DexConfig[];
   /** Volatile (ETH/BTC) tokens: address -> {asset, symbol}. */
@@ -148,6 +156,7 @@ export const NETWORKS: NetworkConfig[] = [
   {
     id: "base",
     name: "Base",
+    rpcUrl: "https://mainnet.base.org",
     dexes: [
       {
         id: "uniswap-v3-base",
@@ -160,6 +169,7 @@ export const NETWORKS: NetworkConfig[] = [
         name: "Aerodrome Slipstream",
         family: "Aerodrome",
         subgraph: { id: "GENunSHWLBXm59mBSgPzQ8metBEp9YDfdqwFr91Av1UM", schema: "uniswap-v3" },
+        dynamicFees: true,
       },
       { id: "pancakeswap-v3-base", name: "PancakeSwap V3", family: "PancakeSwap" },
     ],

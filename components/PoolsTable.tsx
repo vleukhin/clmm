@@ -284,9 +284,16 @@ export function PoolsTable({
                 </div>
               </td>
 
-              {/* Fee */}
-              <td className="tnum px-3 py-2.5 text-right text-text-muted">
-                {formatFeeTier(p.feeTier)}
+              {/* Fee: live on-chain fee when the DEX has dynamic fees */}
+              <td
+                className="tnum px-3 py-2.5 text-right text-text-muted"
+                title={
+                  p.feeTierActual != null && p.feeTierActual !== p.feeTier
+                    ? `Live on-chain fee (nominal tier ${formatFeeTier(p.feeTier)})`
+                    : undefined
+                }
+              >
+                {formatFeeTier(p.feeTierActual ?? p.feeTier)}
               </td>
 
               {/* TVL */}

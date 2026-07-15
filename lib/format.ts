@@ -31,7 +31,11 @@ export function formatApr(apr: number | null | undefined): string {
 
 export function formatFeeTier(fee: number | null): string {
   if (fee == null) return "—";
-  return `${(fee * 100).toFixed(fee < 0.001 ? 2 : fee < 0.01 ? 2 : 1)}%`;
+  const pct = fee * 100;
+  // Live dynamic fees can be arbitrary (e.g. 0.0282%) — keep 2 significant
+  // digits for tiny values instead of rounding them onto a fake standard tier.
+  if (pct > 0 && pct < 0.1) return `${parseFloat(pct.toPrecision(2))}%`;
+  return `${pct.toFixed(pct < 1 ? 2 : 1)}%`;
 }
 
 /** USD price with sensible precision across magnitudes (BTC ~$100K, ETH ~$1.7K,

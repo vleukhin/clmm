@@ -5,6 +5,7 @@
 
 import { NETWORKS_BY_ID } from "./config";
 import { feeAprFromFees } from "./apr";
+import { fetchPoolFees } from "./onchainFees";
 import { querySubgraph } from "./subgraph";
 import type { Pool, PoolApr } from "./types";
 
@@ -15,9 +16,9 @@ const WINDOW_DAYS = 91;
 // Newest-first daily rows plus the pool's current in-range liquidity + decimals
 // (for the liquidity-share APR model). `close` is token0Price at day end;
 // orientation is pool-native, which is fine for relative-range math (netApr.ts).
-// NOTE: querySubgraph caches by (subgraphId, variables) only, NOT query text —
-// every caller must use THIS exact query so the cache never returns a payload
-// missing fields.
+// `volumeUSD` is needed to recompute fees for dynamic-fee DEXes (see
+// applyDynamicFees below). querySubgraph keys its cache on the query text, so
+// shape changes here never collide with stale cached payloads.
 const POOL_DAY_QUERY = `
   query($ids: [String!]!, $since: Int!) {
     poolDayDatas(
@@ -29,6 +30,7 @@ const POOL_DAY_QUERY = `
       pool { id }
       date
       feesUSD
+      volumeUSD
       close
     }
     pools(first: 1000, where: { id_in: $ids }) {
@@ -44,6 +46,7 @@ interface RawPoolDayData {
   pool: { id: string };
   date: number;
   feesUSD: string;
+  volumeUSD: string;
   close: string;
 }
 
@@ -57,7 +60,10 @@ interface RawPoolMeta {
 /** One day of pool data, newest-first within a pool's array. */
 export interface SubgraphDailyRow {
   date: number;
+  /** Whole-pool fees for the day, USD. For dynamic-fee DEXes this is already
+   * corrected to volume × live on-chain fee × LP share (see applyDynamicFees). */
   feesUSD: number;
+  volumeUSD: number;
   close: number;
 }
 
@@ -121,6 +127,7 @@ export async function fetchSubgraphDaily(
         arr.push({
           date: row.date,
           feesUSD: Number(row.feesUSD) || 0,
+          volumeUSD: Number(row.volumeUSD) || 0,
           close: Number(row.close) || 0,
         });
         rowsByAddr.set(row.pool.id, arr);
@@ -145,7 +152,57 @@ export async function fetchSubgraphDaily(
     }),
   );
 
+  await applyDynamicFees(pools, result, warnings);
   return result;
+}
+
+/**
+ * Rewrite feesUSD for pools of dynamic-fee DEXes (Aerodrome Slipstream): the
+ * subgraph derives feesUSD from the STATIC creation-time tier, but the live
+ * fee comes from the factory's fee module and is often far lower (the "1%"
+ * cbBTC/USDC pool actually charges 0.037% — a 27x overstatement). Uses
+ * volume × live fee × (1 - unstaked-fee skim), i.e. the fees a marginal
+ * UNSTAKED LP's liquidity share actually earns. The live fee is applied to the
+ * whole history window — fee-module changes within the window are invisible,
+ * which is still an order of magnitude closer than the static tier. On-chain
+ * read failures keep the subgraph values and add a warning.
+ */
+async function applyDynamicFees(
+  pools: Pool[],
+  result: Map<string, SubgraphPoolData>,
+  warnings: string[],
+): Promise<void> {
+  const byRpc = new Map<string, Pool[]>();
+  for (const pool of pools) {
+    if (!result.has(pool.id)) continue;
+    const network = NETWORKS_BY_ID[pool.networkId];
+    const dex = network?.dexes.find((d) => d.id === pool.dexId);
+    if (!dex?.dynamicFees || !network?.rpcUrl) continue;
+    const rpc = network.rpcUrl;
+    (byRpc.get(rpc) ?? byRpc.set(rpc, []).get(rpc)!).push(pool);
+  }
+
+  await Promise.all(
+    [...byRpc.entries()].map(async ([rpcUrl, group]) => {
+      const fees = await fetchPoolFees(
+        rpcUrl,
+        group.map((p) => p.address.toLowerCase()),
+        warnings,
+      );
+      for (const pool of group) {
+        const terms = fees.get(pool.address.toLowerCase());
+        if (!terms) {
+          warnings.push(
+            `${pool.name}: live fee unavailable — subgraph fees may be overstated`,
+          );
+          continue;
+        }
+        for (const row of result.get(pool.id)!.rows) {
+          row.feesUSD = row.volumeUSD * terms.fee * terms.lpFeeShare;
+        }
+      }
+    }),
+  );
 }
 
 /**
