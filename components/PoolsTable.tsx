@@ -176,7 +176,10 @@ function rewardsTitle(p: Pool): string {
     (c) => `+${formatApr(c.apr)} in ${c.tokens.join(", ") || "?"} — ${REWARD_SOURCE_LABEL[c.source]}`,
   );
   let s = `Extra rewards APR on top of swap fees: ${parts.join("; ")}. Not included in Net/Fee APR.`;
-  if (p.dexFamily === "Aerodrome") {
+  // Gauge emissions (Aerodrome) replace swap fees for staked positions; Merkl
+  // campaigns (e.g. Aero on Arc paying USDC) are additive, so the caveat is
+  // keyed on the component, not the DEX family.
+  if (r.components.some((c) => c.source === "defillama")) {
     s += " Aerodrome: positions staked in the gauge earn AERO instead of swap fees.";
   }
   return s;

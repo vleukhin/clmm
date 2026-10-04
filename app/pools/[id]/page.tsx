@@ -296,7 +296,9 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
           hint={
             pool.rewards
               ? `in ${pool.rewards.tokens.join(", ")}${
-                  pool.dexFamily === "Aerodrome" ? " · staked, instead of fees" : ""
+                  pool.rewards.components.some((c) => c.source === "defillama")
+                    ? " · staked, instead of fees"
+                    : " · on top of fees"
                 }`
               : rewardsQuery.isLoading
                 ? undefined

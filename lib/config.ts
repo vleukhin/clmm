@@ -246,6 +246,10 @@ export const NETWORKS: NetworkConfig[] = [
     // ETH/BTC-stable pools (and V4 is unsupported elsewhere in the app).
     id: "arc",
     name: "Arc",
+    chainId: 5042,
+    // DefiLlama yields has no Arc rows (checked 2026-10-04); rewards come from
+    // Merkl, which lists Arc (Aero's USDC campaigns on cirBTC/USDC, WETH/USDC).
+    llamaChain: "Arc",
     rpcUrl: "https://rpc.mainnet.arc.io",
     dexes: [
       { id: "uniswap-v3-arc", name: "Uniswap V3", family: "Uniswap" },
