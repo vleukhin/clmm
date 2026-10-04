@@ -106,6 +106,8 @@ function sortValue(p: Pool, key: SortKey): number {
     case "netRangeApr":
       // Missing sinks to the bottom regardless of direction handling above.
       return p.rangeApr?.netApr ?? -Infinity;
+    case "rewardApr":
+      return p.rewards?.rewardApr ?? -1;
   }
 }
 
@@ -172,6 +174,7 @@ export function paramsToFilters(p: URLSearchParams): {
     "feeApr7d",
     "feeApr30d",
     "netRangeApr",
+    "rewardApr",
   ];
   const sort: SortState = {
     key: validKeys.includes(sortKey as SortKey)

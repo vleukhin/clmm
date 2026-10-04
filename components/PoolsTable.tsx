@@ -9,7 +9,7 @@ import {
   formatUsd,
   formatPercent,
 } from "@/lib/format";
-import type { Pool, SortKey } from "@/lib/types";
+import type { Pool, RewardSource, SortKey } from "@/lib/types";
 import { nativePoolLink } from "@/lib/dexLinks";
 
 const NETWORK_COLOR: Record<string, string> = {
@@ -134,6 +134,53 @@ function netAprCell(p: Pool, loading: boolean) {
   );
 }
 
+/** Amber pill for extra LP rewards (gauge emissions / Merkl campaigns), kept
+ * visually distinct from fee APR because the two are not simply additive. */
+function rewardsCell(p: Pool, loading: boolean) {
+  const r = p.rewards;
+  if (loading && r === undefined) {
+    return (
+      <span className="tnum inline-block h-5 w-12 animate-pulse rounded bg-surface-hover align-middle" />
+    );
+  }
+  if (r == null) return <span className="tnum text-text-faint">—</span>;
+  const t = Math.max(0, Math.min(1, r.rewardApr / 0.5));
+  return (
+    <span
+      className="tnum inline-block rounded-md px-2 py-1 text-xs font-semibold"
+      style={{
+        background: `color-mix(in oklab, var(--btc) ${Math.round(t * 20)}%, transparent)`,
+        color:
+          t > 0.1
+            ? `color-mix(in oklab, var(--btc) ${Math.round(55 + t * 45)}%, var(--text))`
+            : "var(--text-muted)",
+      }}
+    >
+      +{formatApr(r.rewardApr)}
+    </span>
+  );
+}
+
+const REWARD_SOURCE_LABEL: Record<RewardSource, string> = {
+  defillama: "gauge emissions (DefiLlama)",
+  merkl: "Merkl campaign",
+};
+
+function rewardsTitle(p: Pool): string {
+  const r = p.rewards;
+  if (!r) {
+    return "No live LP incentives found for this pool (DefiLlama gauge data, Merkl campaigns)";
+  }
+  const parts = r.components.map(
+    (c) => `+${formatApr(c.apr)} in ${c.tokens.join(", ") || "?"} — ${REWARD_SOURCE_LABEL[c.source]}`,
+  );
+  let s = `Extra rewards APR on top of swap fees: ${parts.join("; ")}. Not included in Net/Fee APR.`;
+  if (p.dexFamily === "Aerodrome") {
+    s += " Aerodrome: positions staked in the gauge earn AERO instead of swap fees.";
+  }
+  return s;
+}
+
 function netAprTitle(p: Pool, widthLabel: string): string | undefined {
   const r = p.rangeApr;
   if (!r) return undefined;
@@ -150,6 +197,7 @@ export function PoolsTable({
   onSort,
   aprLoading,
   rangeLoading,
+  rewardsLoading,
   rangeWidthLabel,
 }: {
   pools: Pool[];
@@ -157,11 +205,12 @@ export function PoolsTable({
   onSort: (key: SortKey) => void;
   aprLoading: boolean;
   rangeLoading: boolean;
+  rewardsLoading: boolean;
   rangeWidthLabel: string;
 }) {
   return (
     <div className="scroll-x overflow-x-auto rounded-2xl border border-border-soft">
-      <table className="w-full min-w-[1080px] border-collapse text-sm">
+      <table className="w-full min-w-[1100px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border">
             <th className="sticky top-0 z-10 bg-bg-elev px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-text-faint">
@@ -199,6 +248,12 @@ export function PoolsTable({
             <SortHeader
               label="APR 30d"
               col="feeApr30d"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortHeader
+              label="Rewards"
+              col="rewardApr"
               sort={sort}
               onSort={onSort}
             />
@@ -334,6 +389,11 @@ export function PoolsTable({
                 title={p.aprSource ? APR_TITLE[p.aprSource] : undefined}
               >
                 {aprCell(p.feeApr30d, aprLoading, p.aprSource)}
+              </td>
+
+              {/* Extra LP rewards (gauge emissions / Merkl campaigns) */}
+              <td className="px-2 py-2 text-right" title={rewardsTitle(p)}>
+                {rewardsCell(p, rewardsLoading)}
               </td>
             </tr>
           ))}

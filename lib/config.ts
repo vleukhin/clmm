@@ -28,12 +28,21 @@ export interface DexConfig {
    * 0.037%). When set, fee-derived APRs are corrected from on-chain reads
    * (lib/onchainFees.ts); requires `rpcUrl` on the network. */
   dynamicFees?: boolean;
+  /** DefiLlama yields `project` id, set ONLY for DEXes whose LP incentives are
+   * native gauge emissions (Aerodrome's AERO). DefiLlama's `apyReward` for
+   * Uniswap/Sushi is itself sourced from Merkl campaigns, which we read
+   * directly (lib/rewards.ts) — listing them here would double count. */
+  llamaProject?: string;
 }
 
 export interface NetworkConfig {
   /** GeckoTerminal network id, e.g. "eth". */
   id: string;
   name: string;
+  /** EVM chain id (Merkl keys opportunities by it). */
+  chainId: number;
+  /** DefiLlama yields `chain` label, e.g. "Ethereum", "BSC". */
+  llamaChain: string;
   /** Public JSON-RPC endpoint, needed only by DEXes with `dynamicFees`. */
   rpcUrl?: string;
   /** CLMM (concentrated-liquidity) DEXes to scan on this network. */
@@ -65,6 +74,8 @@ export const NETWORKS: NetworkConfig[] = [
   {
     id: "eth",
     name: "Ethereum",
+    chainId: 1,
+    llamaChain: "Ethereum",
     dexes: [
       {
         id: "uniswap_v3",
@@ -103,6 +114,8 @@ export const NETWORKS: NetworkConfig[] = [
   {
     id: "bsc",
     name: "BNB Chain",
+    chainId: 56,
+    llamaChain: "BSC",
     dexes: [
       { id: "pancakeswap-v3-bsc", name: "PancakeSwap V3", family: "PancakeSwap" },
       { id: "uniswap-bsc", name: "Uniswap V3", family: "Uniswap" },
@@ -127,6 +140,8 @@ export const NETWORKS: NetworkConfig[] = [
   {
     id: "arbitrum",
     name: "Arbitrum",
+    chainId: 42161,
+    llamaChain: "Arbitrum",
     dexes: [
       {
         id: "uniswap_v3_arbitrum",
@@ -156,6 +171,8 @@ export const NETWORKS: NetworkConfig[] = [
   {
     id: "base",
     name: "Base",
+    chainId: 8453,
+    llamaChain: "Base",
     rpcUrl: "https://mainnet.base.org",
     dexes: [
       {
@@ -170,6 +187,9 @@ export const NETWORKS: NetworkConfig[] = [
         family: "Aerodrome",
         subgraph: { id: "GENunSHWLBXm59mBSgPzQ8metBEp9YDfdqwFr91Av1UM", schema: "uniswap-v3" },
         dynamicFees: true,
+        // AERO gauge emissions (verified 2026-10-04: 247/281 Slipstream pools
+        // carry apyReward; poolMeta "CL100 - 0.0579%" = tick spacing + live fee).
+        llamaProject: "aerodrome-slipstream",
       },
       { id: "pancakeswap-v3-base", name: "PancakeSwap V3", family: "PancakeSwap" },
     ],
@@ -186,6 +206,8 @@ export const NETWORKS: NetworkConfig[] = [
   {
     id: "polygon_pos",
     name: "Polygon",
+    chainId: 137,
+    llamaChain: "Polygon",
     dexes: [
       {
         id: "uniswap_v3_polygon_pos",
@@ -238,6 +260,18 @@ export const FEE_TIERS: { value: number; label: string }[] = [
 ];
 
 export const GECKOTERMINAL_API = "https://api.geckoterminal.com/api/v2";
+
+/** DefiLlama yields (free tier): one ~12 MB JSON for every pool they track.
+ * Used for gauge-emission rewards APR of DEXes with `llamaProject`. */
+export const DEFILLAMA_YIELDS_API = "https://yields.llama.fi/pools";
+
+/** Merkl v4: live incentive campaigns keyed by (chainId, pool address). */
+export const MERKL_API = "https://api.merkl.xyz/v4";
+
+/** Reward-token symbols for addresses DefiLlama returns bare (lowercased). */
+export const REWARD_TOKEN_SYMBOLS: Record<string, string> = lc({
+  "0x940181a94A35A4569E4529A3CDfB74e38FD98631": "AERO",
+});
 
 /** How many pages of pools to fetch per (network, dex). 20 pools per page.
  * Page 1 (top by 24h volume) already contains the major ETH/BTC-stable pools,

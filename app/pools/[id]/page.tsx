@@ -11,7 +11,7 @@ import { nativePoolLink } from "@/lib/dexLinks";
 import { segmentsToUsdBuckets, stableIsToken0 } from "@/lib/rangeSim";
 import type { DailyCandle, PriceStats } from "@/lib/priceHistory";
 import type { LiquiditySegment, TickPoolMeta } from "@/lib/ticks";
-import type { Pool, PoolAprResponse, PoolsResponse } from "@/lib/types";
+import type { Pool, PoolAprResponse, PoolRewardsResponse, PoolsResponse } from "@/lib/types";
 import {
   formatApr,
   formatFeeTier,
@@ -94,19 +94,26 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
     staleTime: 30 * 60_000,
   });
 
+  // Extra LP rewards (gauge emissions / Merkl campaigns).
+  const rewardsQuery = useQuery({
+    queryKey: ["pools-rewards"],
+    queryFn: () => getJson<PoolRewardsResponse>("/api/pools/rewards"),
+    staleTime: 30 * 60_000,
+  });
+
   const pool: Pool | undefined = useMemo(() => {
     const raw = poolsQuery.data?.pools.find((p) => p.id === poolId);
     if (!raw) return undefined;
     const apr = aprQuery.data?.aprById[poolId];
-    return apr
-      ? {
-          ...raw,
-          feeApr7d: apr.feeApr7d,
-          feeApr30d: apr.feeApr30d,
-          aprSource: apr.source,
-        }
-      : raw;
-  }, [poolsQuery.data, aprQuery.data, poolId]);
+    const rewardsById = rewardsQuery.data?.byId;
+    return {
+      ...raw,
+      ...(apr
+        ? { feeApr7d: apr.feeApr7d, feeApr30d: apr.feeApr30d, aprSource: apr.source }
+        : {}),
+      ...(rewardsById ? { rewards: rewardsById[poolId] ?? null } : {}),
+    };
+  }, [poolsQuery.data, aprQuery.data, rewardsQuery.data, poolId]);
 
   // The volatile side varies per pool on GeckoTerminal, so wait for the pool
   // row and request history for the right side.
@@ -256,7 +263,7 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
       </div>
 
       {/* Stat tiles */}
-      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         <StatTile label="Price" value={formatPrice(lastPrice)} />
         <StatTile label="TVL" value={formatUsd(pool.tvlUsd)} />
         <StatTile label="Volume 24h" value={formatUsd(pool.volume24hUsd)} />
@@ -274,6 +281,25 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
               : pool.aprSource === "estimate"
                 ? "volume estimate"
                 : undefined
+          }
+        />
+        <StatTile
+          label="Rewards APR"
+          value={
+            rewardsQuery.isLoading
+              ? "…"
+              : pool.rewards
+                ? `+${formatApr(pool.rewards.rewardApr)}`
+                : "—"
+          }
+          hint={
+            pool.rewards
+              ? `in ${pool.rewards.tokens.join(", ")}${
+                  pool.dexFamily === "Aerodrome" ? " · staked, instead of fees" : ""
+                }`
+              : rewardsQuery.isLoading
+                ? undefined
+                : "no live incentives"
           }
         />
         <StatTile
