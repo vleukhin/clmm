@@ -16,6 +16,7 @@ import {
 import type {
   PoolAprResponse,
   PoolRangeAprResponse,
+  PoolRewardsResponse,
   PoolsResponse,
   SortKey,
 } from "@/lib/types";
@@ -36,6 +37,12 @@ async function fetchApr(): Promise<PoolAprResponse> {
 async function fetchRangeApr(): Promise<PoolRangeAprResponse> {
   const res = await fetch("/api/pools/range-apr");
   if (!res.ok) throw new Error(`Range APR request failed: ${res.status}`);
+  return res.json();
+}
+
+async function fetchRewards(): Promise<PoolRewardsResponse> {
+  const res = await fetch("/api/pools/rewards");
+  if (!res.ok) throw new Error(`Rewards request failed: ${res.status}`);
   return res.json();
 }
 
@@ -82,12 +89,20 @@ export default function Home() {
     staleTime: 30 * 60_000,
   });
 
-  // Merge APR + net range APR (for the selected band width) into pools so
-  // filtering/sorting can use them.
+  // Extra LP rewards (gauge emissions / Merkl campaigns) load separately too.
+  const rewardsQuery = useQuery({
+    queryKey: ["pools-rewards"],
+    queryFn: fetchRewards,
+    staleTime: 30 * 60_000,
+  });
+
+  // Merge APR + net range APR (for the selected band width) + rewards into
+  // pools so filtering/sorting can use them.
   const allPools = useMemo(() => {
     const pools = data?.pools ?? [];
     const aprById = aprQuery.data?.aprById;
     const rangeById = rangeQuery.data?.byId;
+    const rewardsById = rewardsQuery.data?.byId;
     return pools.map((p) => {
       const apr = aprById?.[p.id];
       const range = rangeById?.[p.id];
@@ -105,9 +120,10 @@ export default function Home() {
               rangeAprDays: range?.days,
             }
           : {}),
+        ...(rewardsById ? { rewards: rewardsById[p.id] ?? null } : {}),
       };
     });
-  }, [data?.pools, aprQuery.data, rangeQuery.data, filters.rangeWidth]);
+  }, [data?.pools, aprQuery.data, rangeQuery.data, rewardsQuery.data, filters.rangeWidth]);
 
   const visible = useMemo(
     () => applyFilters(allPools, filters, sort),
@@ -116,6 +132,7 @@ export default function Home() {
 
   const aprLoading = aprQuery.isLoading;
   const rangeLoading = rangeQuery.isLoading;
+  const rewardsLoading = rewardsQuery.isLoading;
 
   const onSort = (key: SortKey) =>
     setSort((s) =>
@@ -187,6 +204,7 @@ export default function Home() {
             onSort={onSort}
             aprLoading={aprLoading}
             rangeLoading={rangeLoading}
+            rewardsLoading={rewardsLoading}
             rangeWidthLabel={
               RANGE_WIDTHS.find((w) => w.key === filters.rangeWidth)?.label ?? ""
             }
@@ -195,7 +213,8 @@ export default function Home() {
       </div>
 
       <footer className="mt-8 text-center text-[11px] text-text-faint">
-        Data via GeckoTerminal · Vol/TVL is a turnover proxy, not realized APR.
+        Data via GeckoTerminal · Rewards via DefiLlama &amp; Merkl · Vol/TVL is a
+        turnover proxy, not realized APR.
       </footer>
     </main>
   );

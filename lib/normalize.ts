@@ -52,14 +52,20 @@ export function normalizePool(
   let volatile: { asset: "ETH" | "BTC"; symbol: string };
   let stableSymbol: string;
   let volatileIsBase: boolean;
+  let volatileAddress: string;
+  let stableAddress: string;
   if (baseVol && quoteStable) {
     volatile = baseVol;
     stableSymbol = quoteStable;
     volatileIsBase = true;
+    volatileAddress = baseAddr;
+    stableAddress = quoteAddr;
   } else if (quoteVol && baseStable) {
     volatile = quoteVol;
     stableSymbol = baseStable;
     volatileIsBase = false;
+    volatileAddress = quoteAddr;
+    stableAddress = baseAddr;
   } else {
     return null; // not an ETH/BTC <-> stable pair
   }
@@ -81,6 +87,8 @@ export function normalizePool(
     baseAsset: volatile.asset,
     volatileSymbol: volatile.symbol,
     stableSymbol,
+    volatileAddress,
+    stableAddress,
     volatileIsBase,
     feeTier: resolveFeeTier(
       raw.attributes.name,

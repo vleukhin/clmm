@@ -18,6 +18,9 @@ const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
 const SEL_AGGREGATE3 = "0x82ad56cb"; // aggregate3((address,bool,bytes)[])
 const SEL_FEE = "0xddca3f43"; // fee() -> uint24
 const SEL_UNSTAKED_FEE = "0xb64cc67b"; // unstakedFee() -> uint24
+const SEL_TICK_SPACING = "0xd0c93a7c"; // tickSpacing() -> int24
+/** Getters read per pool, in calldata order. */
+const CALLS_PER_POOL = 3;
 /** Uniswap-v3-style fee units: 1e6 = 100% (fee 500 = 0.05%). */
 const FEE_DENOM = 1e6;
 const TTL_MS = 30 * 60_000;
@@ -28,6 +31,10 @@ export interface PoolSwapFee {
   fee: number;
   /** Share of earned fees an unstaked LP keeps: 1 - unstakedFee (e.g. 0.9). */
   lpFeeShare: number;
+  /** Pool tick spacing (Slipstream: identifies the pool together with its
+   * pair, verified 2026-10-04: WETH/USDC and cbBTC/USDC "0.05%" pools both
+   * return 100). Null if the getter failed. */
+  tickSpacing: number | null;
 }
 
 const cache = new Map<string, { at: number; value: PoolSwapFee }>();
@@ -94,7 +101,8 @@ export function decodeAggregate3(hexResult: string): (number | null)[] {
 }
 
 /**
- * Read {fee(), unstakedFee()} for many pools in one Multicall3 eth_call.
+ * Read {fee(), unstakedFee(), tickSpacing()} for many pools in one Multicall3
+ * eth_call.
  * Keyed by LOWERCASED pool address. Pools whose fee read fails are omitted
  * (with a warning); a missing unstakedFee getter just means no skim (share 1).
  * Never throws — on transport errors it returns whatever the cache has.
@@ -114,8 +122,8 @@ export async function fetchPoolFees(
   }
   if (missing.length === 0) return result;
 
-  const targets = missing.flatMap((a) => [a, a]);
-  const selectors = missing.flatMap(() => [SEL_FEE, SEL_UNSTAKED_FEE]);
+  const targets = missing.flatMap((a) => Array<string>(CALLS_PER_POOL).fill(a));
+  const selectors = missing.flatMap(() => [SEL_FEE, SEL_UNSTAKED_FEE, SEL_TICK_SPACING]);
 
   try {
     const res = await fetch(rpcUrl, {
@@ -143,8 +151,9 @@ export async function fetchPoolFees(
     }
     const words = decodeAggregate3(json.result);
     for (let i = 0; i < missing.length; i++) {
-      const feeRaw = words[i * 2];
-      const unstakedRaw = words[i * 2 + 1];
+      const feeRaw = words[i * CALLS_PER_POOL];
+      const unstakedRaw = words[i * CALLS_PER_POOL + 1];
+      const tickSpacingRaw = words[i * CALLS_PER_POOL + 2];
       if (feeRaw == null || !(feeRaw > 0) || feeRaw >= FEE_DENOM) {
         warnings.push(`onchain fees: no fee() from pool ${missing[i]}`);
         continue;
@@ -153,7 +162,12 @@ export async function fetchPoolFees(
         unstakedRaw != null && unstakedRaw >= 0 && unstakedRaw < FEE_DENOM
           ? unstakedRaw / FEE_DENOM
           : 0;
-      const value: PoolSwapFee = { fee: feeRaw / FEE_DENOM, lpFeeShare: 1 - skim };
+      // int24 but always positive in practice; treat anything else as unknown.
+      const tickSpacing =
+        tickSpacingRaw != null && tickSpacingRaw > 0 && tickSpacingRaw < 2 ** 23
+          ? tickSpacingRaw
+          : null;
+      const value: PoolSwapFee = { fee: feeRaw / FEE_DENOM, lpFeeShare: 1 - skim, tickSpacing };
       cache.set(`${rpcUrl}:${missing[i]}`, { at: Date.now(), value });
       result.set(missing[i], value);
     }
