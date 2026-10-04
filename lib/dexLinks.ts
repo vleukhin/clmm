@@ -17,6 +17,7 @@ const UNISWAP_CHAIN: Record<string, string> = {
   arbitrum: "arbitrum",
   base: "base",
   polygon_pos: "polygon",
+  arc: "arc",
 };
 
 /** Chain path segment in pancakeswap.finance/info/v3/{seg}pairs/{address}.
@@ -82,7 +83,11 @@ export function nativePoolLink(pool: Pool): NativePoolLink | null {
         exact: true,
       };
     case "Aerodrome":
-      // No address-addressable pool page; land on the liquidity list.
+      // No address-addressable pool page; land on the liquidity list. On Arc
+      // the deployment is Aero Lite, served from Aero's own front-end.
+      if (pool.networkId === "arc") {
+        return { url: "https://app.aero.xyz/liquidity", label: "Aero", exact: false };
+      }
       return { url: "https://aerodrome.finance/liquidity", label: "Aerodrome", exact: false };
     case "THENA":
       return { url: "https://thena.fi/pools", label: "THENA", exact: false };

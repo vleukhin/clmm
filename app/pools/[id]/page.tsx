@@ -45,6 +45,7 @@ const NETWORK_COLOR: Record<string, string> = {
   arbitrum: "#28a0f0",
   base: "#0052ff",
   polygon_pos: "#8247e5",
+  arc: "#2ed3b7",
 };
 
 function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {

@@ -61,6 +61,9 @@ function lc<T>(entries: Record<string, T>): Record<string, T> {
 //     for our BSC pools (wrong chain/deployment)
 //   bsc/uniswap-bsc, arbitrum/pancakeswap-v3-arbitrum, base/pancakeswap-v3-base,
 //   polygon_pos/sushiswap-v3-polygon
+//   arc/* — The Graph supports Arc only in Subgraph Studio, with no indexing on
+//     the decentralized network (checked 2026-10-04), so nothing is reachable
+//     through the gateway.
 export const NETWORKS: NetworkConfig[] = [
   {
     id: "eth",
@@ -210,6 +213,37 @@ export const NETWORKS: NetworkConfig[] = [
       "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174": "USDC.e",
       "0xc2132D05D31c914a87C6611C10748AEb04B58e8F": "USDT",
       "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063": "DAI",
+    }),
+  },
+  {
+    // Arc: Circle's USDC-gas L1 (chain id 5042). GeckoTerminal network id "arc".
+    // Token addresses are the canonical ones from docs.arc.io; GeckoTerminal
+    // also lists look-alike "cirBTC" (0x560f…), "WETH" (0x41d5…) and "BTC/USDB"
+    // tokens with inflated TVL — those are NOT canonical, do not add them.
+    // Uniswap V4 and SushiSwap V3 exist on Arc too but have no canonical
+    // ETH/BTC-stable pools (and V4 is unsupported elsewhere in the app).
+    id: "arc",
+    name: "Arc",
+    rpcUrl: "https://rpc.mainnet.arc.io",
+    dexes: [
+      { id: "uniswap-v3-arc", name: "Uniswap V3", family: "Uniswap" },
+      {
+        // Aero Lite (Dromos' Slipstream deployment on Arc). Verified on-chain
+        // 2026-10-04: live fee() differs from the nominal tier (cirBTC/USDC
+        // "0.018%" charges 0.041%, WETH/USDC "0.05%" charges 0.032%).
+        id: "aero-arc",
+        name: "Aero Slipstream",
+        family: "Aerodrome",
+        dynamicFees: true,
+      },
+    ],
+    volatile: lc({
+      "0x128cC466B61f542da60c70e3aA11c10e19B84EDB": { asset: "ETH", symbol: "WETH" },
+      "0x171A4217b86A807A64eB94757Db6849fb4bDbAA0": { asset: "BTC", symbol: "cirBTC" },
+    }),
+    stables: lc({
+      // USDC is the native gas token; 0x36…00 is its 6-decimal ERC-20 interface.
+      "0x3600000000000000000000000000000000000000": "USDC",
     }),
   },
 ];
