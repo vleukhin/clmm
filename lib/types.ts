@@ -23,6 +23,9 @@ export interface Pool {
   volatileSymbol: string;
   /** Symbol of the stablecoin, e.g. "USDC". */
   stableSymbol: string;
+  /** Lowercased token addresses (for matching external datasets by pair). */
+  volatileAddress: string;
+  stableAddress: string;
   /** Whether the volatile token is GeckoTerminal's "base" side of the pool.
    * Needed to request OHLCV history for the right token (?token=base|quote). */
   volatileIsBase: boolean;
@@ -33,6 +36,10 @@ export interface Pool {
    * where the fee module can diverge from the nominal tier. Undefined for
    * static-fee DEXes; null if the on-chain read failed. */
   feeTierActual?: number | null;
+  /** On-chain tick spacing, read only for dynamic-fee DEXes (Aerodrome
+   * Slipstream, where (pair, tickSpacing) identifies the pool). Null if the
+   * read failed; undefined for static-fee DEXes. */
+  tickSpacing?: number | null;
   /** Total value locked, USD. */
   tvlUsd: number;
   /** 24h trading volume, USD. */
@@ -52,6 +59,9 @@ export interface Pool {
   rangeAprSource?: "fees" | "estimate";
   /** Daily samples behind the range backtest (for the tooltip). */
   rangeAprDays?: number;
+  /** Extra (non-fee) LP rewards, merged client-side from /api/pools/rewards.
+   * undefined until that resolves; null when no live incentives are known. */
+  rewards?: PoolRewards | null;
   /** 24h price change of base token, percent. */
   priceChange24h: number | null;
   /** 24h transaction count. */
@@ -90,7 +100,8 @@ export type SortKey =
   | "feeTier"
   | "feeApr7d"
   | "feeApr30d"
-  | "netRangeApr";
+  | "netRangeApr"
+  | "rewardApr";
 
 /** Per-pool fee APR enrichment returned by /api/pools/apr, keyed by pool id. */
 export interface PoolApr {
@@ -117,6 +128,36 @@ export interface PoolRangeApr {
 
 export interface PoolRangeAprResponse {
   byId: Record<string, PoolRangeApr>;
+  generatedAt: string;
+  warnings: string[];
+}
+
+/** Where a rewards figure came from. "defillama" = native gauge emissions
+ * (e.g. AERO on Aerodrome) via DefiLlama yields; "merkl" = live Merkl
+ * incentive campaigns. */
+export type RewardSource = "defillama" | "merkl";
+
+export interface RewardComponent {
+  source: RewardSource;
+  /** Annualized reward APR, as a fraction (0.2 = 20%). */
+  apr: number;
+  /** Reward token symbols (or shortened addresses when unknown). */
+  tokens: string[];
+}
+
+/** Extra LP rewards on top of swap fees, per pool (from /api/pools/rewards).
+ * NOT folded into fee / net range APR: on Aerodrome a staked position earns
+ * AERO *instead of* swap fees, so the two are not simply additive. */
+export interface PoolRewards {
+  /** Sum of all components, as a fraction. */
+  rewardApr: number;
+  /** Union of component tokens. */
+  tokens: string[];
+  components: RewardComponent[];
+}
+
+export interface PoolRewardsResponse {
+  byId: Record<string, PoolRewards>;
   generatedAt: string;
   warnings: string[];
 }

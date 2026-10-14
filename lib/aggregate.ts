@@ -55,10 +55,10 @@ export async function getAllPools(): Promise<PoolsResponse> {
 }
 
 /**
- * Fill `feeTierActual` for pools of dynamic-fee DEXes (Aerodrome Slipstream)
- * from the live on-chain `fee()` — the nominal tier in the pool name can be
- * wildly off (a "1%" pool charging 0.037%). One Multicall3 request per network,
- * memoized 30 min inside fetchPoolFees.
+ * Fill `feeTierActual` (and `tickSpacing`) for pools of dynamic-fee DEXes
+ * (Aerodrome Slipstream) from the live on-chain `fee()` — the nominal tier in
+ * the pool name can be wildly off (a "1%" pool charging 0.037%). One Multicall3
+ * request per network, memoized 30 min inside fetchPoolFees.
  */
 async function enrichDynamicFees(pools: Pool[], warnings: string[]): Promise<void> {
   const byRpc = new Map<string, Pool[]>();
@@ -78,7 +78,9 @@ async function enrichDynamicFees(pools: Pool[], warnings: string[]): Promise<voi
         warnings,
       );
       for (const pool of group) {
-        pool.feeTierActual = fees.get(pool.address.toLowerCase())?.fee ?? null;
+        const read = fees.get(pool.address.toLowerCase());
+        pool.feeTierActual = read?.fee ?? null;
+        pool.tickSpacing = read?.tickSpacing ?? null;
       }
     }),
   );
