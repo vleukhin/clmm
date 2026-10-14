@@ -46,12 +46,15 @@ export default function Home() {
 
   // Hydrate from the URL once on mount.
   useEffect(() => {
-    const parsed = paramsToFilters(
-      new URLSearchParams(window.location.search),
-    );
-    setFilters(parsed.filters);
-    setSort(parsed.sort);
-    hydrated.current = true;
+    const frame = requestAnimationFrame(() => {
+      const parsed = paramsToFilters(
+        new URLSearchParams(window.location.search),
+      );
+      setFilters(parsed.filters);
+      setSort(parsed.sort);
+      hydrated.current = true;
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   // Push filter/sort state back to the URL (shareable view).

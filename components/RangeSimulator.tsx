@@ -106,8 +106,11 @@ export function RangeSimulator({
 
   // Sync mirrors when bounds change from outside (presets / initialization).
   useEffect(() => {
-    setPaText(fmtBound(paUsd));
-    setPbText(fmtBound(pbUsd));
+    const frame = requestAnimationFrame(() => {
+      setPaText(fmtBound(paUsd));
+      setPbText(fmtBound(pbUsd));
+    });
+    return () => cancelAnimationFrame(frame);
   }, [paUsd, pbUsd]);
 
   const depositUsd = Number(depositText) || 0;

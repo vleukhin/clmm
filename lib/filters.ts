@@ -3,6 +3,7 @@
 
 import type { BaseAsset, Pool, SortKey } from "./types";
 import { DEFAULT_WIDTH, RANGE_WIDTHS, type RangeWidthKey } from "./netApr";
+import { compareNetRangeApr, effectiveFeeTier } from "./filterUtils";
 
 export interface FilterState {
   /** Selected network ids; empty = all. */
@@ -62,9 +63,10 @@ export function applyFilters(
     if (f.baseAssets.length && !f.baseAssets.includes(p.baseAsset)) return false;
     if (f.stables.length && !f.stables.includes(p.stableSymbol)) return false;
     if (f.feeTiers.length) {
-      if (p.feeTier == null) return false;
+      const feeTier = effectiveFeeTier(p.feeTier, p.feeTierActual);
+      if (feeTier == null) return false;
       // Match on nearest tier to avoid float noise.
-      const match = f.feeTiers.some((t) => Math.abs(t - p.feeTier!) < 1e-9);
+      const match = f.feeTiers.some((t) => Math.abs(t - feeTier) < 1e-9);
       if (!match) return false;
     }
     if (f.minTvl != null && p.tvlUsd < f.minTvl) return false;
@@ -79,6 +81,9 @@ export function applyFilters(
 
   const dir = sort.dir === "asc" ? 1 : -1;
   out.sort((a, b) => {
+    if (sort.key === "netRangeApr") {
+      return compareNetRangeApr(a.rangeApr?.netApr, b.rangeApr?.netApr, sort.dir);
+    }
     const av = sortValue(a, sort.key);
     const bv = sortValue(b, sort.key);
     // NaN/Infinity-safe: equal (incl. two missing sentinels) => 0, so JS's
@@ -104,7 +109,6 @@ function sortValue(p: Pool, key: SortKey): number {
     case "feeApr30d":
       return p.feeApr30d ?? -1;
     case "netRangeApr":
-      // Missing sinks to the bottom regardless of direction handling above.
       return p.rangeApr?.netApr ?? -Infinity;
   }
 }

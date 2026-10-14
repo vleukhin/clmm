@@ -141,13 +141,14 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
   const stats = historyQuery.data?.stats ?? null;
   const lastPrice = stats?.lastClose ?? null;
 
-  // Selected range (USD per volatile). Initialized to ±10% once price is known.
-  const [range, setRange] = useState<{ pa: number; pb: number } | null>(null);
-  useEffect(() => {
-    if (range === null && lastPrice != null && lastPrice > 0) {
-      setRange({ pa: lastPrice / 1.1, pb: lastPrice * 1.1 });
-    }
-  }, [range, lastPrice]);
+  // Selected range (USD per volatile). Derive the initial ±10% range from the
+  // loaded price instead of scheduling an extra render from an effect.
+  const [selectedRange, setSelectedRange] = useState<{ pa: number; pb: number } | null>(null);
+  const range = selectedRange ?? (
+    lastPrice != null && lastPrice > 0
+      ? { pa: lastPrice / 1.1, pb: lastPrice * 1.1 }
+      : null
+  );
 
   useEffect(() => {
     if (pool) document.title = `${pool.volatileSymbol}/${pool.stableSymbol} · CLMM Analytics`;
@@ -167,6 +168,21 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
         <div className="h-8 w-64 animate-pulse rounded bg-surface-hover" />
         <div className="mt-6 h-72 animate-pulse rounded-2xl bg-surface" />
+      </main>
+    );
+  }
+
+  if (poolsQuery.isError) {
+    return (
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-16 text-center">
+        <p className="text-sm text-neg">Failed to load pool data.</p>
+        <button
+          type="button"
+          onClick={() => poolsQuery.refetch()}
+          className="mt-4 rounded-md border border-border px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-accent hover:text-accent"
+        >
+          Try again
+        </button>
       </main>
     );
   }
@@ -348,7 +364,7 @@ export default function PoolPage({ params }: { params: Promise<{ id: string }> }
               segments={ticksQuery.data?.segments ?? null}
               paUsd={range.pa}
               pbUsd={range.pb}
-              onRange={(pa, pb) => setRange({ pa, pb })}
+              onRange={(pa, pb) => setSelectedRange({ pa, pb })}
             />
           )}
         </div>

@@ -12,6 +12,11 @@ import type { Pool, PoolApr } from "./types";
 const DAY = 86_400;
 /** Days of history to pull — covers the 30d APR window and the range backtest. */
 const WINDOW_DAYS = 91;
+/** The Graph caps a single collection query at 1,000 rows. Include the current
+ * partial day as well as the previous 91 complete days when sizing batches. */
+const MAX_POOL_DAY_ROWS = 1_000;
+const DAYS_PER_POOL = WINDOW_DAYS + 1;
+const POOLS_PER_QUERY = Math.floor(MAX_POOL_DAY_ROWS / DAYS_PER_POOL);
 
 // Newest-first daily rows plus the pool's current in-range liquidity + decimals
 // (for the liquidity-share APR model). `close` is token0Price at day end;
@@ -90,7 +95,8 @@ function sumFirst(nums: number[], n: number): number | null {
 /**
  * Fetch daily {feesUSD, close} rows (newest-first) plus pool liquidity/decimals
  * for every pool whose DEX has a subgraph configured, keyed by pool id. Pools
- * with no returned day data are omitted. One batched request per subgraph.
+ * with no returned day data are omitted. Pool ids are batched so the Graph's
+ * 1,000-row collection limit cannot silently truncate a pool's history.
  */
 export async function fetchSubgraphDaily(
   pools: Pool[],
@@ -113,33 +119,36 @@ export async function fetchSubgraphDaily(
     [...bySubgraph.entries()].map(async ([subgraphId, group]) => {
       // Subgraph pool ids are lowercased addresses.
       const addrToPool = new Map(group.map((p) => [p.address.toLowerCase(), p]));
-      const ids = [...addrToPool.keys()];
-
-      const data = await querySubgraph<{
-        poolDayDatas: RawPoolDayData[];
-        pools: RawPoolMeta[];
-      }>(subgraphId, POOL_DAY_QUERY, { ids, since }, warnings);
-      if (!data) return;
-
       const rowsByAddr = new Map<string, SubgraphDailyRow[]>();
-      for (const row of data.poolDayDatas) {
-        const arr = rowsByAddr.get(row.pool.id) ?? [];
-        arr.push({
-          date: row.date,
-          feesUSD: Number(row.feesUSD) || 0,
-          volumeUSD: Number(row.volumeUSD) || 0,
-          close: Number(row.close) || 0,
-        });
-        rowsByAddr.set(row.pool.id, arr);
-      }
-
       const metaByAddr = new Map<string, SubgraphPoolMeta>();
-      for (const m of data.pools ?? []) {
-        const liq = Number(m.liquidity);
-        const d0 = Number(m.token0?.decimals);
-        const d1 = Number(m.token1?.decimals);
-        if (Number.isFinite(liq) && liq > 0 && Number.isFinite(d0) && Number.isFinite(d1)) {
-          metaByAddr.set(m.id, { liquidityRaw: liq, decimals0: d0, decimals1: d1 });
+
+      const ids = [...addrToPool.keys()];
+      for (let i = 0; i < ids.length; i += POOLS_PER_QUERY) {
+        const batchIds = ids.slice(i, i + POOLS_PER_QUERY);
+        const data = await querySubgraph<{
+          poolDayDatas: RawPoolDayData[];
+          pools: RawPoolMeta[];
+        }>(subgraphId, POOL_DAY_QUERY, { ids: batchIds, since }, warnings);
+        if (!data) continue;
+
+        for (const row of data.poolDayDatas ?? []) {
+          const arr = rowsByAddr.get(row.pool.id) ?? [];
+          arr.push({
+            date: row.date,
+            feesUSD: Number(row.feesUSD) || 0,
+            volumeUSD: Number(row.volumeUSD) || 0,
+            close: Number(row.close) || 0,
+          });
+          rowsByAddr.set(row.pool.id, arr);
+        }
+
+        for (const m of data.pools ?? []) {
+          const liq = Number(m.liquidity);
+          const d0 = Number(m.token0?.decimals);
+          const d1 = Number(m.token1?.decimals);
+          if (Number.isFinite(liq) && liq > 0 && Number.isFinite(d0) && Number.isFinite(d1)) {
+            metaByAddr.set(m.id, { liquidityRaw: liq, decimals0: d0, decimals1: d1 });
+          }
         }
       }
 
